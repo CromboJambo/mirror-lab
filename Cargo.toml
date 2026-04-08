@@ -1,0 +1,152 @@
+[workspace]
+members = [
+    "mirror-wit",
+    "mirror-wit/macro",
+    "mirror-daemon",
+    "mirror-kernel",
+    "mirror-log",
+    "mirror-logger",
+    "mirror-query",
+    "mirror-voice/piper-tts",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+
+[profile.release]
+opt-level = 3
+lto = true
+
+[profile.dev]
+debug = true
+
+# Shared dependencies for the workspace
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+uuid = { version = "1.6", features = ["v4"] }
+sha2 = "0.10"
+hex = "0.4"
+
+# CLI and parsing
+clap = { version = "4.5", features = ["derive"] }
+
+# File system events
+notify = "6.1"
+
+# Database
+rusqlite = { version = "0.32", features = ["bundled"] }
+```
+
+Now let me also update the individual crates' Cargo.toml files to use workspace dependencies:
+
+```toml
+[package]
+name = "mirror-daemon"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# Core functionality - use workspace versions
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+
+# File watching and event handling
+notify.workspace = true
+
+# Hashing and integrity
+sha2.workspace = true
+hex.workspace = true
+
+# CLI (for the witness client)
+clap.workspace = true
+
+# Logging (boring, not clever)
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+tempfile = "3.8"
+```
+
+Let me also update the other crates:
+
+```toml
+[package]
+name = "mirror-kernel"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+rusqlite.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+```
+
+```toml
+[package]
+name = "mirror-wit"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "mirror_wit"
+path = "src/lib.rs"
+
+[[bin]]
+name = "wit-bindgen"
+path = "macro/main.rs"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+wasm-tools = "1.100.0"
+```
+
+```toml
+[package]
+name = "mirror-wit-macros"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "mirror_wit_macros"
+path = "src/lib.rs"
+proc-macro = true
+
+[dependencies]
+syn = { version = "2.0", features = ["full"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+
+[dev-dependencies]
+mirror-wit = { path = "../" }
+```
+
+```toml
+[package]
+name = "piper-tts"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow = "1.0"
+thiserror = "2.0"
+ort = "2.0.0-rc.12"
+rodio = "0.19"
+serde.workspace = true
+serde_json.workspace = true
+hound = "3.5"
+
+[features]
+cuda = ["ort/cuda"]

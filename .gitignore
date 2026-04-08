@@ -1,11 +1,41 @@
-# Python-generated files
-__pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
-*.egg-info
+# Rust / Cargo generated files
+/target/
+**/target/
+Cargo.lock
+*.wasm
+*.wit.*
+mirror.db
+*.db
 
-# Virtual environments
-.venv
-.aider*
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*.aider*
+
+# Build artifacts
+*.so
+*.dylib
+*.dll
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Test coverage reports
+coverage/
+tarpaulin-report.html
+
+# Wasm pack output
+pkg/
+*.tgz
