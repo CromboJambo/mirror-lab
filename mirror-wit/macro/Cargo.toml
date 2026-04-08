@@ -1,0 +1,270 @@
+[package]
+name = "mirror-wit-macros"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "mirror_wit_macros"
+path = "src/lib.rs"
+proc-macro = true
+
+[dependencies]
+syn = { version = "2.0", features = ["full"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+
+```
+
+Now let me create the macro implementation:
+
+```rust
+// mirror-lab/mirror-wit/macro/src/lib.rs
+
+//! Macro utilities for Mirror WIT modules
+//!
+//! This crate provides procedural macros to reduce boilerplate when
+//! implementing Mirror modules.
+
+use proc_macro::TokenStream;
+use quote::quote;
+use syn::{parse_macro_input, DeriveInput};
+
+/// Derive macro for implementing `MirrorModule` trait with minimal code
+///
+/// # Example
+///
+/// ```ignore
+/// use mirror_wit::MirrorTag;
+/// use mirror_wit_macros::MirrorModule;
+///
+/// #[derive(MirrorModule)]
+/// struct MyModule {
+///     name: String,
+/// }
+///
+/// impl MyModule {
+///     fn new() -> Self {
+///         Self { name: "MyModule".to_string() }
+///     }
+/// }
+/// ```
+#[proc_macro_derive(MirrorModule, attributes(mirror))]
+pub fn derive_mirror_module(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+
+    let name = &input.ident;
+
+    // Generate the trait implementation
+    let expanded = quote! {
+        impl mirror_wit::MirrorModule for #name {
+            fn init(&mut self) -> Result<mirror_wit::ModuleInitResponse, String> {
+                Ok(mirror_wit::ModuleInitResponse {
+                    version: 1,
+                    tags: vec![
+                        "Read".to_string(),
+                        "Write".to_string()
+                    ],
+                })
+            }
+
+            fn handle_message(&mut self, payload: &str) -> Result<String, String> {
+                // Default implementation: echo back the payload
+                Ok(payload.to_string())
+            }
+
+            fn get_tags(&self) -> Vec<MirrorTag> {
+                vec![
+                    MirrorTag::Read,
+                    MirrorTag::Write
+                ]
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
+}
+
+/// Attribute macro to mark a struct as a Mirror module
+///
+/// This macro handles the complete setup including WIT interface exports.
+#[proc_macro_attribute]
+pub fn mirror_module(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(item as DeriveInput);
+    let name = &input.ident;
+
+    // Generate module implementation
+    let expanded = quote! {
+        #input
+
+        impl #name {
+            /// Create a new instance of this module
+            pub fn new() -> Self {
+                Default::default()
+            }
+        }
+
+        impl Default for #name {
+            fn default() -> Self {
+                #name::new()
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
+}
+
+```
+
+Now let me create a comprehensive README:
+
+```markdown
+# Mirror WIT (WebAssembly Interface Types)
+
+The interface specification and code generation tools for Mirror modules.
+
+## Architecture
+
+```
+┌─────────────────┐     JSONL      ┌──────────────────┐
+│  mirror-daemon  │◄─────────────►│  mirror-module   │
+│   (orchestrator)│     JSONL      │  (WASM component)│
+└─────────────────┘               └──────────────────┘
+         │                                 │
+    MirrorTag                    Capability tokens
+```
+
+## WIT Interface Specification
+
+The WIT file is located at `src/wit/mirror.wit`:
+
+```wit
+package mirror:v0.1.0;
+
+world mirror-runtime {
+  func init() -> result<init-response, string>;
+  func handle_message(payload: list<u8>) -> result<message-response, string>;
+  func get_permissions() -> record<{ id: string, capabilities: list<string> }>;
+  func fs_read(path: string, offset: u64, len: u32) -> result<list<u8>, string>;
+  func fs_write(path: string, data: list<u8>) -> result<bool, string>;
+  func fs_exists(path: string) -> bool;
+}
+```
+
+## Rust API
+
+### MirrorTag Enum
+
+```rust
+pub enum MirrorTag {
+    Reflect,
+    Challenge,
+    Compress,
+    Expand,
+    EmpathicLow,
+    EmpathicHigh,
+    Read,
+    Write,
+    Network,
+}
+```
+
+### Module Response Types
+
+```rust
+pub struct ModuleInitResponse {
+    pub version: u32,
+    pub tags: Vec<String>,
+}
+
+pub struct ModuleResponse {
+    pub success: bool,
+    pub data: Option<serde_json::Value>,
+    pub error: Option<String>,
+}
+```
+
+### MirrorModule Trait
+
+All modules must implement this trait:
+
+```rust
+pub trait MirrorModule {
+    fn init(&mut self) -> Result<ModuleInitResponse, String>;
+    fn handle_message(&mut self, payload: &str) -> Result<String, String>;
+    fn get_tags(&self) -> Vec<MirrorTag>;
+}
+```
+
+## Example Module
+
+See `examples/echo_module.rs` for a complete example:
+
+```rust
+use mirror_wit::{MirrorModule, MirrorTag};
+
+pub struct EchoModule {
+    initialized: bool,
+}
+
+impl MirrorModule for EchoModule {
+    fn init(&mut self) -> Result<ModuleInitResponse, String> {
+        Ok(ModuleInitResponse {
+            version: 1,
+            tags: vec!["Read".to_string(), "Write".to_string()],
+        })
+    }
+
+    fn handle_message(&mut self, payload: &str) -> Result<String, String> {
+        Ok(payload.to_string()) // Echo back
+    }
+
+    fn get_tags(&self) -> Vec<MirrorTag> {
+        vec![MirrorTag::Read, MirrorTag::Write]
+    }
+}
+```
+
+## Building for WASM
+
+```bash
+# Build for WebAssembly target
+cargo build --target wasm32-unknown-unknown
+
+# Or use wasm-pack for JavaScript interop
+wasm-pack build --target web
+```
+
+## Integration with mirror-daemon
+
+The daemon:
+
+1. Loads the module as a WebAssembly component
+2. Calls `init()` to get version and capabilities
+3. Validates MirrorTag permissions before routing messages
+4. Routes JSONL messages via `handle_message()`
+
+## Directory Structure
+
+```
+mirror-wit/
+├── Cargo.toml              # Main crate dependencies
+├── src/
+│   ├── lib.rs             # Core types and traits
+│   └── wit/
+│       └── mirror.wit     # WIT interface specification
+├── examples/
+│   └── echo_module.rs     # Example module implementation
+└── macro/
+    ├── Cargo.toml         # Macro crate dependencies
+    └── src/
+        └── lib.rs         # Procedural macros
+```
+
+## Next Steps
+
+1. Generate Rust bindings from WIT: `wit-bindgen mirror.wit`
+2. Build modules as WebAssembly components
+3. Integrate with `mirror-daemon` for message routing
+4. Implement specific modules (filesystem, transforms, etc.)
+
+</parameter>
