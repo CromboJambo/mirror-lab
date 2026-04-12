@@ -8,12 +8,16 @@ members = [
     "mirror-logger",
     "mirror-query",
     "mirror-voice/piper-tts",
+    "ingress",
+    "clipboard-tts",
+    "crab-cli",
+    "crab_tui",
 ]
 resolver = "2"
 
 [workspace.package]
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [profile.release]
 opt-level = 3
