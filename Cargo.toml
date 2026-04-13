@@ -4,12 +4,10 @@ members = [
     "mirror-wit/macro",
     "mirror-daemon",
     "mirror-kernel",
-    "mirror-log",
     "mirror-logger",
     "mirror-query",
     "mirror-voice/piper-tts",
     "ingress",
-    "clipboard-tts",
     "crab-cli",
     "crab_tui",
 ]
