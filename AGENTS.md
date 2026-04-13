@@ -6,7 +6,7 @@
 
 ## Integration Roadmap
 
-The project is currently undergoing a consolidation phase to merge experimental crates (`crab-cli`, `crab_tui`, `ingress`, etc.) into the core `mirror-*` ecosystem.
+The project is currently in a major consolidation phase, merging several experimental and auxiliary crates (e.g., `crab-cli`, `crab_tui`, `ingress`) into the unified `mirror-*` core ecosystem.
 
 ### Phase 1: Standardization
 - **Dependency Alignment**: Migrating common dependencies (e.g., `tokio`, `thiserror`) to the workspace root.
@@ -51,7 +51,7 @@ Each crate lives in its own directory with a `src/` subtree and its own `Cargo.t
 | `cargo build` | Debug build of the entire workspace |
 | `cargo build --release` | Optimised release build (`opt-level = 3`, `lto = true`) |
 | `cargo check --workspace` | Fast type/borrow-check without producing binaries |
-| `cargo test --workspace` | Run all unit, integration, and doc tests |
+| cargo test --workspace | Run all unit, integration, and doc tests for the entire workspace. |
 | `cargo test -p mirror-log` | Run tests for a single crate |
 | `cargo clippy --workspace -- -D warnings` | Lint the full workspace; warnings are errors |
 | `cargo fmt --all` | Auto-format every crate with `rustfmt` |
@@ -66,15 +66,15 @@ Each crate lives in its own directory with a `src/` subtree and its own `Cargo.t
 - **Formatter:** `rustfmt` with default settings. Run `cargo fmt --all` before committing.
 - **Linter:** Clippy at `--deny warnings`. New code must compile without warnings.
 - **Naming:** follow standard Rust conventions — `snake_case` for functions/variables/modules, `PascalCase` for types and traits, `SCREAMING_SNAKE_CASE` for constants.
-- **Error handling:** use `thiserror` for library errors (`mirror-log`); use `anyhow` for binary/CLI error propagation (`mirror-query`). Avoid `.unwrap()` in library code.
-- **Dependencies:** always declare shared deps in `[workspace.dependencies]` and inherit them with `dep = { workspace = true }` in member crates.
+- **Error handling:** Library crates must define custom errors using `thiserror`. Binary/CLI applications should handle top-level error propagation using `anyhow`. Never use `.unwrap()` or `.expect()` for recoverable errors within library code.
+- **Dependencies:** All commonly used external dependencies must be declared once in the workspace root's `[workspace.dependencies]`. Member crates must then consume these dependencies using `dep = { workspace = true }`.
 
 ---
 
 ## Testing Guidelines
 
 - **Framework:** Rust's built-in `#[test]` and `#[cfg(test)]` modules.
-- **Temporary files:** use the `tempfile` crate (already a dev-dependency in `mirror-daemon`) for any test that touches the filesystem.
+- **Filesystem/Resources:** When testing file system interactions, always use the `tempfile` crate. SQLite tests must use either an in-memory database (`:memory:`) or a path managed by `tempfile` — never hard-coded paths.
 - **Test names:** use descriptive `snake_case` names that state the behaviour under test, e.g. `test_chunk_splits_on_sentence_boundary`.
 - **Coverage target:** aim to test all public API surface. SQLite-backed tests must use an in-memory DB (`:memory:`) or a `tempfile`-managed path — never a hard-coded path.
 - Run the full suite before opening a PR: `cargo test --workspace`.
