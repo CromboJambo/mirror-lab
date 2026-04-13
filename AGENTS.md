@@ -1,4 +1,4 @@
-# Repository Guidelines
+# Repository Guidelines (and Agent Instructions)
 
 ## Project Overview
 
@@ -31,12 +31,14 @@ mirror-lab/
 ├── Cargo.toml          # Workspace root — shared deps and profiles
 ├── mirror-daemon/      # File-watching daemon; tracks filesystem events
 ├── mirror-kernel/      # Core decision logic and SQLite persistence layer
-├── mirror-log/         # Primary library + CLI: append-only event log, chunking, embeddings
+│   └── mirror-log/      # (Relocated) Primary library + CLI: append-only event log, chunking, embeddings
 ├── mirror-logger/      # Structured logging engine and entry management
 ├── mirror-query/       # Local AI query CLI (decompression layer over mirror-log)
 ├── mirror-voice/       # TTS interface (piper-tts sub-workspace)
 └── mirror-wit/         # WIT interface definitions and proc-macro support
 ```
+
+For specialized agent instructions, configuration, and the "Dreaming Mode" protocol, refer to: [crabjar/agent_config.md](./crabjar/agent_config.md)
 
 Each crate lives in its own directory with a `src/` subtree and its own `Cargo.toml`. Shared dependencies are declared once in the workspace root's `[workspace.dependencies]` table.
 

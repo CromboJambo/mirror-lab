@@ -8,8 +8,6 @@ members = [
     "mirror-query",
     "mirror-voice/piper-tts",
     "ingress",
-    "crab-cli",
-    "crab_tui",
 ]
 resolver = "2"
 
