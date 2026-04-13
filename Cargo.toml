@@ -7,7 +7,7 @@ members = [
     "mirror-logger",
     "mirror-query",
     "mirror-voice/piper-tts",
-    "ingress",
+
 ]
 resolver = "2"
 
