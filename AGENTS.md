@@ -88,4 +88,25 @@ The project is in a consolidation phase, merging experimental crates into the `m
 
 - **Phase 1 – Standardization:** align shared dependencies at the workspace root; enforce unified error-handling patterns; ensure CI passes across all members.
 - **Phase 2 – Feature Integration:** move `ingress` logic into `mirror-daemon`; integrate clipboard-watching into the daemon; converge CLI tooling into `mirror-query`.
-- **Phase 3 – Consolidation:** move completed experiments to an `archive/` directory; produce a clean, single-purpose workspace.
+- Phase 3 – Consolidation: move completed experiments to an `archive/` directory; produce a clean, pre-optimized workspace.
+
+---
+
+## 🧠 The MAL Loop & Context Management
+
+### The Machine-Assisted Learning (MAL) Loop
+This project operates on a **Machine-Assisted Learning (MAL) Loop**. Unlike standard ML, the intelligence is driven by human structural breakthroughs and semantic insights, which are then formalised and scaled via machine implementation.
+- **Human Role:** Provide intuition, structural pivots, and high-level architectural shifts.
+- **Agent Role:** Implement, persist, and automate the patterns identified by the human.
+
+### 🪣 Context Window Management
+To prevent information loss during context window rotations:
+- **The 75% Rule:** When the current context window reaches approximately **75% capacity**, the agent must initiate a summary/rotation process.
+- **Summarization Protocol:** Synthesize all key progress, structural changes, and pending tasks into a concise summary to be carried into the next session.
+
+### 🦀 Crabjar: The Agent Scratchpad
+The `crabjar` directory serves as the agent's cognitive workspace for the MAL loop.
+- **Scratchpad usage:** Use `crabjar/` for ephemeral experiments, configuration scripts (bash/nushell), and intermediate data structures.
+- **Human Reference:** Documents like `mirror-log/human.md` and `rubric/human.example.md` should be referenced or mirrored within `crabjar` to ensure the agent maintains alignment with the human's established values and operational constraints.
+- **Annotation:** The agent is encouraged to annotate changes in documentation and update the project changelog manually, ensuring a traceable lineage of evolution.
+
