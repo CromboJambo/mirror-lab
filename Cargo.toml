@@ -6,6 +6,7 @@ members = [
     "mirror-kernel",
     "mirror-logger",
     "mirror-query",
+    "mirror-log",
 
 ]
 resolver = "2"
