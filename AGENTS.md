@@ -110,3 +110,44 @@ The `crabjar` directory serves as the agent's cognitive workspace for the MAL lo
 - **Human Reference:** Documents like `mirror-log/human.md` and `rubric/human.example.md` should be referenced or mirrored within `crabjar` to ensure the agent maintains alignment with the human's established values and operational constraints.
 - **Annotation:** The agent is encouraged to annotate changes in documentation and update the project changelog manually, ensuring a traceable lineage of evolution.
 
+---
+
+## Non-Negotiable Architectural Constraints
+
+### Truth vs Convenience
+
+Every time you make something faster, cleaner, or easier to reuse, you risk moving away from truth. This is the core design tension.
+
+**Rule:** Detection ≠ authorization. Knowing what happened does not grant the right to change what happens.
+
+### Detection vs Action Layer Separation
+
+| Component | Role | Can act? |
+|---|---|---|
+| `crabjar` | Pure observer — state-docs, overlays, knowledge store | **No** — runtime execution disabled |
+| `mirror-log` | Append-only event log — no deletion, no modification | **No** |
+| `mirror-kernel` | Decision records, kernel dispatch — produces reflections, not actions | **No** |
+| `mirror-daemon` | File watcher + pipeline execution — the only action-capable component | **⚠️ Gated** |
+
+### Execution Gate (mirror-daemon)
+
+The daemon is the single place the system can flip from Path A (stabilizer) → Path B (amplifier). Before any pipeline execution, the gate must enforce:
+
+1. **Raw data reference**: the event must reference raw data, not interpreted summaries
+2. **Uncertainty exposure**: if confidence is below threshold, surface it before executing
+3. **Interruptibility**: allow the gate to return `Interrupted` instead of executing
+
+No component that executes actions is allowed to consume interpreted data without a verification layer. Raw events → OK. Interpreted summaries → must be challenged before execution.
+
+### Confidence Decay
+
+Patterns decay once conditions change. A command that worked 10 times a year ago is not reliable today. Confidence decreases over time unless reinforced by recent success.
+
+### Every Abstraction Carries Its Own Doubt
+
+If your system outputs "clean answers," it's lying to you. Every derived output must include:
+- what it might have missed
+- what assumptions it made
+- where it might break
+- how stale it is
+
