@@ -20,7 +20,6 @@
 //! ```
 
 use mirror_wit::{MirrorModule, MirrorTag};
-use serde::{Deserialize, Serialize};
 
 /// Simple echo module for testing
 pub struct EchoModule {
