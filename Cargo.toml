@@ -8,6 +8,8 @@ members = [
     "mirror-query",
     "mirror-log",
     "crabjar/orchestrator",
+    "crabjar/mirror-guard",
+
 
 ]
 resolver = "2"
@@ -61,3 +63,6 @@ reqwest = { version = "0.12" }
 
 # Security / gitignore matching
 ignore = "0.4"
+
+# Workspace member dependencies
+mirror-kernel = { path = "mirror-kernel" }
