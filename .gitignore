@@ -40,3 +40,6 @@ tarpaulin-report.html
 # Wasm pack output
 pkg/
 *.tgz
+
+# Stakpak session files
+.stakpak/session*

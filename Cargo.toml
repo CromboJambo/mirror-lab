@@ -9,8 +9,11 @@ members = [
     "mirror-log",
     "crabjar/orchestrator",
     "crabjar/mirror-guard",
-
-
+    "crabjar/src/codeburn",
+    "crabjar/src/codeburn-config",
+    "crabjar/src/codeburn-provider",
+    "crabjar/src/codeburn-classifier",
+    "crabjar/src/codeburn-pricing",
 ]
 resolver = "2"
 
@@ -66,3 +69,7 @@ ignore = "0.4"
 
 # Workspace member dependencies
 mirror-kernel = { path = "mirror-kernel" }
+codeburn-config = { path = "crabjar/src/codeburn-config" }
+codeburn-provider = { path = "crabjar/src/codeburn-provider" }
+codeburn-classifier = { path = "crabjar/src/codeburn-classifier" }
+codeburn-pricing = { path = "crabjar/src/codeburn-pricing" }

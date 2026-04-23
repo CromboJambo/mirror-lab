@@ -17,8 +17,12 @@ mirror-lab/
 ├── mirror-log/              # Primary library + CLI: append-only event log, chunking, embeddings
 ├── mirror-logger/           # Structured logging engine and entry management
 ├── mirror-query/            # Local AI query CLI (decompression layer over mirror-log)
-└── mirror-wit/              # WIT interface definitions and proc-macro support
-    └── macro/               # Companion proc-macro crate
+├── mirror-wit/              # WIT interface definitions and proc-macro support
+│   └── macro/               # Companion proc-macro crate
+├── a-hole/                 # Data egress crate — crab-cli and crab_tui (unwired)
+├── staging/                # Ephemeral staging directory for single JSON artifacts
+├── state-docs/             # State-docs Markdown files for project documentation
+└── crabjar/                # Agent scratchpad — experimental crates and knowledge store
 ```
 
 Each crate lives in its own directory with a `src/` subtree and its own `Cargo.toml`. All shared external dependencies are declared once in the workspace root's `[workspace.dependencies]` table and consumed in member crates with `{ workspace = true }`.
@@ -150,4 +154,3 @@ If your system outputs "clean answers," it's lying to you. Every derived output 
 - what assumptions it made
 - where it might break
 - how stale it is
-
