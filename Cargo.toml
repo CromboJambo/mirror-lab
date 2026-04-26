@@ -13,7 +13,7 @@ members = [
     "crabjar/src/codeburn-config",
     "crabjar/src/codeburn-provider",
     "crabjar/src/codeburn-classifier",
-    "crabjar/src/codeburn-pricing",
+    "crabjar/src/codeburn-pricing", "zllg",
 ]
 resolver = "2"
 
@@ -44,6 +44,7 @@ sha2 = "0.10"
 hex = "0.4"
 crossterm = "0.28"
 rand = "0.8"
+ratatui = "0.29"
 
 # CLI and parsing
 clap = { version = "4.5", features = ["derive"] }
