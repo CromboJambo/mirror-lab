@@ -1,0 +1,7 @@
+{
+  "role": "CLI entry point — command parsing and dispatch",
+  "entry_points": ["main.rs", "project_loader.rs", "state_docs.rs"],
+  "dependencies": ["crabjar-config", "agent-context"],
+  "data_source": "SQLite-backed memory and filesystem state-docs",
+  "capabilities": ["command parsing", "dispatch", "state-docs read/write"]
+}
