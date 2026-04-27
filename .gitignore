@@ -7,6 +7,7 @@ Cargo.lock
 mirror.db
 *.db
 crabjar/reference_materials/
+docs/
 
 # IDE and editor files
 .idea/
