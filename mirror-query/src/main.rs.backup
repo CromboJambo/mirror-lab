@@ -1,0 +1,258 @@
+use anyhow::{Context, Result};
+use clap::Parser;
+use rusqlite::Connection;
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+
+/// Mirror-Query - Local AI decompression layer for mirror-log
+///
+/// Query your append-only event log with natural language using local AI.
+/// No cloud, no API keys, your data stays yours.
+#[derive(Parser)]
+#[command(name = "mirror-query")]
+#[command(about = "Local AI query interface for mirror-log", long_about = None)]
+struct Cli {
+    /// Natural language query
+    query: String,
+
+    /// Path to mirror.db
+    #[arg(short, long, default_value = "mirror.db")]
+    db: PathBuf,
+
+    /// Number of recent events to include as context
+    #[arg(short, long, default_value = "50")]
+    context: i64,
+
+    /// Filter by source
+    #[arg(short, long)]
+    source: Option<String>,
+
+    /// Ollama API endpoint
+    #[arg(long, default_value = "http://localhost:11434")]
+    ollama_url: String,
+
+    /// Ollama model to use
+    #[arg(short, long, default_value = "llama3.2")]
+    model: String,
+
+    /// Output format (text, json, markdown)
+    #[arg(short, long, default_value = "text")]
+    format: String,
+
+    /// Show debug information
+    #[arg(long)]
+    debug: bool,
+
+    /// HTTP request timeout in seconds (default: 60)
+    #[arg(long, default_value = "60")]
+    timeout: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Event {
+    id: String,
+    timestamp: i64,
+    source: String,
+    content: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    meta: Option<String>,
+}
+
+impl Event {
+    fn format_time(&self) -> String {
+        use chrono::{DateTime, TimeZone, Utc};
+        let dt: DateTime<Utc> = Utc.timestamp_opt(self.timestamp, 0).unwrap();
+        dt.format("%Y-%m-%d %H:%M:%S UTC").to_string()
+    }
+}
+
+#[derive(Debug, Serialize)]
+struct OllamaRequest {
+    model: String,
+    prompt: String,
+    stream: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct OllamaResponse {
+    response: String,
+}
+
+fn main() -> Result<()> {
+    let cli = Cli::parse();
+
+    if cli.debug {
+        eprintln!("🔍 Debug mode enabled");
+        eprintln!("Database: {:?}", cli.db);
+        eprintln!("Query: {}", cli.query);
+        eprintln!("Context size: {}", cli.context);
+        eprintln!("Ollama URL: {}", cli.ollama_url);
+        eprintln!("Model: {}", cli.model);
+    }
+
+    // Connect to mirror.db
+    let conn = Connection::open(&cli.db)
+        .with_context(|| format!("Failed to open database: {:?}", cli.db))?;
+
+    if cli.debug {
+        eprintln!("\n📊 Fetching events...");
+    }
+
+    // Fetch recent events
+    let events = fetch_events(&conn, cli.context, cli.source.as_deref())?;
+
+    if events.is_empty() {
+        eprintln!("⚠️  No events found in database");
+        eprintln!("Make sure mirror.db exists and has events.");
+        eprintln!("See: https://github.com/CromboJambo/mirror-log");
+        return Ok(());
+    }
+
+    if cli.debug {
+        eprintln!("✓ Fetched {} events", events.len());
+    }
+
+    // Build context for AI
+    let context = build_context(&events);
+
+    if cli.debug {
+        eprintln!("\n📝 Context size: {} chars", context.len());
+        eprintln!("\n💭 Sending to Ollama...");
+    }
+
+    // Query Ollama
+    let response = query_ollama(
+        &cli.ollama_url,
+        &cli.model,
+        &cli.query,
+        &context,
+        cli.debug,
+        cli.timeout,
+    )?;
+
+    // Output result
+    match cli.format.as_str() {
+        "json" => {
+            let output = serde_json::json!({
+                "query": cli.query,
+                "response": response,
+                "events_analyzed": events.len(),
+            });
+            println!("{}", serde_json::to_string_pretty(&output)?);
+        }
+        "markdown" => {
+            println!("# Query\n\n{}\n", cli.query);
+            println!("## Response\n\n{}\n", response);
+            println!("---\n*Analyzed {} events from mirror-log*", events.len());
+        }
+        _ => {
+            // Default text format
+            println!("{}", response);
+
+            if cli.debug {
+                eprintln!("\n📈 Stats: Analyzed {} events", events.len());
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn fetch_events(conn: &Connection, limit: i64, source: Option<&str>) -> Result<Vec<Event>> {
+    let query = if let Some(src) = source {
+        "SELECT id, timestamp, source, content, meta
+         FROM events
+         WHERE source = ?1
+         ORDER BY timestamp DESC
+         LIMIT ?2"
+    } else {
+        "SELECT id, timestamp, source, content, meta
+         FROM events
+         ORDER BY timestamp DESC
+         LIMIT ?1"
+    };
+
+    let mut stmt = conn.prepare(&query)?;
+
+    let events = stmt
+        .query_map((source.as_deref(), &limit), |row| {
+            Ok(Event {
+                id: row.get(0)?,
+                timestamp: row.get(1)?,
+                source: row.get(2)?,
+                content: row.get(3)?,
+                meta: row.get(4)?,
+            })
+        })
+        .context("Failed to execute query")
+        .map(|rows| rows.filter_map(Result::ok).collect())
+        .context("Failed to collect events")?
+}
+
+fn build_context(events: &[Event]) -> String {
+    let mut context = String::from("Here are recent events from the user's append-only log:\n\n");
+
+    for event in events.iter().rev() {
+        context.push_str(&format!(
+            "[{}] [{}] {}\n",
+            event.format_time(),
+            event.source,
+            event.content
+        ));
+
+        if let Some(meta) = &event.meta {
+            context.push_str(&format!("  Meta: {}\n", meta));
+        }
+        context.push('\n');
+    }
+
+    context
+}
+
+fn query_ollama(
+    url: &str,
+    model: &str,
+    user_query: &str,
+    context: &str,
+    debug: bool,
+    timeout: u64,
+) -> Result<String> {
+    // Build the full prompt
+    let prompt = format!(
+        "{}\n\n---\n\nUser question: {}\n\nProvide a helpful, concise answer based on the events above.",
+        context, user_query
+    );
+
+    if debug {
+        eprintln!("\n📤 Prompt length: {} chars", prompt.len());
+    }
+
+    let request = OllamaRequest {
+        model: model.to_string(),
+        prompt,
+        stream: false,
+    };
+
+    let client = reqwest::blocking::Client::new();
+    let response = client
+        .post(format!("{}/api/generate", url))
+        .timeout(std::time::Duration::from_secs(timeout))
+        .json(&request)
+        .send()
+        .context("Failed to connect to Ollama. Is it running? Try: ollama serve")?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().unwrap_or_default();
+        anyhow::bail!(
+            "Ollama API error ({}): {}\n\nMake sure Ollama is running: ollama serve",
+            status,
+            body
+        );
+    }
+
+    let ollama_response: OllamaResponse =
+        response.json().context("Failed to parse Ollama response")?;
+
+    Ok(ollama_response.response.trim().to_string())
+}
