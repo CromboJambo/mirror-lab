@@ -50,4 +50,4 @@ pkg/
 
 # Reference materials (cloned repos, not authored here)
 crabjar/reference_materials/
-crabjar/.agents/index.md
+crabjar/.agents/
