@@ -1,0 +1,7 @@
+{
+  "role": "project README",
+  "entry_points": ["README.md"],
+  "dependencies": ["crabjar-config"],
+  "data_source": "filesystem",
+  "capabilities": ["project documentation"]
+}

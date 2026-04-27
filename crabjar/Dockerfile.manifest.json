@@ -1,0 +1,7 @@
+{
+  "role": "container build definition",
+  "entry_points": ["Dockerfile"],
+  "dependencies": ["orchestrator", "crabjar"],
+  "data_source": "filesystem",
+  "capabilities": ["container provisioning"]
+}
