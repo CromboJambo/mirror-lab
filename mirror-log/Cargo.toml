@@ -1,0 +1,50 @@
+[package]
+name = "mirror-log"
+version = "0.1.9"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Append-only event log for personal knowledge management with semantic chunking using SQLite."
+homepage = "https://github.com/CromboJambo"
+repository = "https://github.com/CromboJambo/mirror-log"
+authors = ["Dustin Grover <dustinjgrover@gmail.com>"]
+readme = "README.md"
+keywords = ["log", "knowledge-management", "SQLite", "append-only", "chunking"]
+categories = ["command-line-utilities", "data-structures", "database"]
+
+[dependencies]
+rusqlite.workspace = true
+clap.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+sha2.workspace = true
+rand.workspace = true
+
+# Required for embedding support
+tokenizers = { version = "0.20", optional = true }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+# Inference support (optional)
+arboard = { version = "3.4", optional = true }
+reqwest = { workspace = true, features = ["json"], optional = true }
+tokio.workspace = true
+async-honesty = "0.1.0"
+mirror-kernel = { workspace = true }
+
+
+[features]
+default = []
+embedding = ["tokenizers"]
+inference = ["reqwest"]
+iteration = []
+clipboard = ["arboard"]
+
+[lib]
+name = "mirror_log"
+path = "src/lib.rs"
+
+[[bin]]
+name = "mirror-log"
+path = "src/bin/mirror_log.rs"

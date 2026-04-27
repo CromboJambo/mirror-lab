@@ -1,0 +1,18 @@
+[package]
+name = "piper-tts"
+version = "0.1.0"
+edition = "2024"
+description = "Native Rust wrapper for Piper neural TTS engine"
+license = "MIT"
+
+[dependencies]
+anyhow = "1.0"
+thiserror = "2.0"
+ort = "2.0.0-rc.12"
+rodio = "0.19"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+hound = "3.5"
+
+[features]
+cuda = ["ort/cuda"]

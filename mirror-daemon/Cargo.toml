@@ -1,0 +1,53 @@
+[package]
+name = "mirror-daemon"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# Core functionality
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+
+# File watching and event handling
+notify = { workspace = true }
+
+# Database (ingress subsystem)
+rusqlite = { workspace = true }
+
+# Config file parsing (ingress subsystem)
+toml.workspace = true
+
+# Hashing and integrity
+sha2 = { workspace = true }
+hex = { workspace = true }
+
+# CLI (for the witness client)
+clap = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true }
+async-trait = { workspace = true }
+
+# Transcription (optional — enabled with --features transcription)
+whisper-rs = { version = "0.15", optional = true }
+hound = { version = "3.5", optional = true }
+
+# Text processing
+regex = { workspace = true }
+
+# Clipboard monitoring (optional)
+arboard = { version = "3.4", optional = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[features]
+transcription = ["dep:whisper-rs", "dep:hound"]
+clipboard = ["dep:arboard"]

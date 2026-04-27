@@ -1,0 +1,19 @@
+[package]
+name = "mirror-query"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Local AI query interface for mirror-log - decompression layer for append-only event logs"
+authors = ["Dustin Grover <dustinjgrover@gmail.com>"]
+keywords = ["ai", "query", "local", "knowledge", "mirror-log"]
+categories = ["command-line-utilities", "database"]
+
+[dependencies]
+mirror-log = { path = "../mirror-log", features = ["embedding"] }
+clap = { workspace = true }
+rusqlite = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+reqwest = { workspace = true, features = ["json", "blocking"] }
+chrono = { workspace = true }

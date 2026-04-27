@@ -1,0 +1,24 @@
+# Cargo build artifacts
+/target/
+
+# IDE and editor files
+.vscode/
+.idea/
+
+# Cargo lock file
+Cargo.lock
+
+# Environment files
+.env
+
+# Log files
+*.log
+
+# MacOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+/target/
+/mcode*

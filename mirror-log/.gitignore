@@ -1,0 +1,32 @@
+# SQLite databases
+*.db
+*.db-shm
+*.db-wal
+
+# Rust build artifacts
+target/
+**/*.rs.bk
+**/*.backup
+*.pdb
+
+# rough notes
+dev_log/
+staging/
+
+# Cargo lock (optional - keep if this is a binary)
+# Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+.aider*
+
+# Personal human.md (use human.example.md as template)
+human.md
