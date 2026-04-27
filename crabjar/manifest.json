@@ -1,0 +1,7 @@
+{
+  "role": "agent cognitive workspace and knowledge management system",
+  "entry_points": ["src/main.rs", "state-docs/", "memory/", "reference_materials/"],
+  "dependencies": ["crabjar-config", "agent-context", "mirror-guard", "orchestrator"],
+  "data_source": "SQLite-backed memory and filesystem state-docs",
+  "capabilities": ["state-docs read/write", "knowledge store queries", "command dispatch"]
+}
