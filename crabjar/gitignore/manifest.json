@@ -1,0 +1,7 @@
+{
+  "role": "gitignore file",
+  "entry_points": ["gitignore"],
+  "dependencies": ["crabjar-config"],
+  "data_source": "filesystem",
+  "capabilities": ["gitignore matching"]
+}

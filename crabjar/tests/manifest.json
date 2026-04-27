@@ -1,0 +1,7 @@
+{
+  "role": "unit and integration tests",
+  "entry_points": ["cli.rs"],
+  "dependencies": ["crabjar", "agent-context"],
+  "data_source": "None",
+  "capabilities": ["CLI integration tests", "unit tests"]
+}

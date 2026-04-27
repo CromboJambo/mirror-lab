@@ -1,0 +1,7 @@
+{
+  "role": "binary and executable artifacts",
+  "entry_points": ["bin/"],
+  "dependencies": ["orchestrator", "crabjar"],
+  "data_source": "filesystem",
+  "capabilities": ["binary execution"]
+}

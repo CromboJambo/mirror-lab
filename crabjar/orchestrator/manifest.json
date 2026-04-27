@@ -1,0 +1,7 @@
+{
+  "role": "ACP-compliant orchestrator for Zed and Local LLMs",
+  "entry_points": ["src/main.rs", "Cargo.toml"],
+  "dependencies": ["mirror-guard", "axum", "tokio", "reqwest"],
+  "data_source": "local_log (SQLite)",
+  "capabilities": ["command dispatch", "SSE streaming", "LLM tool-call integration"]
+}
