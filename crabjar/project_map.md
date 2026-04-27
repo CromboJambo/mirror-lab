@@ -1,6 +1,6 @@
 # project_map.md
 
-> Generated: Wed Apr 22 2026
+> Generated: Mon Apr 27 2026
 > Source: Cargo.toml, README.md, AGENTS.md, filesystem scan
 > Purpose: Structural alignment reference for agent navigation
 
@@ -19,7 +19,8 @@ mirror-lab is a Rust workspace for a personal knowledge-management system. Inges
 ```
 mirror-lab/
 ├── Cargo.toml               # Workspace root — shared deps and release profiles
-├── Cargo.lock               # Locked dependency graph
+├── Cargo.lock               # Locked dependency graph (single monorepo lock)
+├── LICENSE                  # AGPL-3.0-or-later (single monorepo license)
 ├── AGENTS.md               # Repository guidelines and architectural constraints
 ├── README.md               # Project overview and integration roadmap
 ├── mirror-daemon/           # File-watching daemon; tracks filesystem events
@@ -215,17 +216,22 @@ crabjar contains:
 - tests/cli.rs
 - ui-state-copy
 - reference_materials
-- js-code-sandbox (TypeScript LM Studio plugin)
-- rag-v1 (TypeScript RAG plugin)
-- archive/legacy (retired code)
 - bin/ (compiled binaries)
 - git/ (git helper scripts)
+- gitignore/ (gitignore management)
 - workspace/ (workspace config)
 - state-docs/ (local state-docs)
 - src/models/ (model definitions)
 - src/state-docs/ (state-docs source)
 - src/dotfile_manager.rs (dotfile management)
 - *.manifest.json (file manifests)
+- human_reference.md (human reference documentation)
+- environment_manifest.json (environment manifest)
+
+**Removed items:**
+- `js-code-sandbox/` — TypeScript LM Studio plugin (intentionally removed during monorepo refactor)
+- `rag-v1/` — TypeScript RAG plugin (intentionally removed during monorepo refactor)
+- `archive/legacy/` — retired code (intentionally removed during monorepo refactor)
 
 ### 8.2 Active Rust Surface
 
