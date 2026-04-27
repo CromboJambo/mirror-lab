@@ -45,7 +45,7 @@ pub const DEFAULT_LAYOUT_KDL: &str = r#"layout {
         // Centre: editor column
         pane split_direction="horizontal" name="editor_col" {
             pane size="70%" name="editor" {
-                command "hx"
+                command "helix"
                 args "."
             }
             // Bottom strip: shell + cargo watch
@@ -84,7 +84,7 @@ pub const RUST_LAYOUT_KDL: &str = r#"layout {
 
         pane split_direction="horizontal" name="editor_col" {
             pane size="70%" name="editor" {
-                command "hx"
+                command "helix"
                 args "."
             }
             pane split_direction="vertical" size="30%" {
@@ -121,7 +121,7 @@ pub const NODE_LAYOUT_KDL: &str = r#"layout {
 
         pane split_direction="horizontal" name="editor_col" {
             pane size="70%" name="editor" {
-                command "hx"
+                command "helix"
                 args "."
             }
             pane split_direction="vertical" size="30%" {
@@ -158,7 +158,7 @@ pub const PYTHON_LAYOUT_KDL: &str = r#"layout {
 
         pane split_direction="horizontal" name="editor_col" {
             pane size="70%" name="editor" {
-                command "hx"
+                command "helix"
                 args "."
             }
             pane split_direction="vertical" size="30%" {
@@ -195,7 +195,7 @@ pub const NIX_LAYOUT_KDL: &str = r#"layout {
 
         pane split_direction="horizontal" name="editor_col" {
             pane size="70%" name="editor" {
-                command "hx"
+                command "helix"
                 args "."
             }
             pane split_direction="vertical" size="30%" {
