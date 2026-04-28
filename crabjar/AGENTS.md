@@ -13,14 +13,11 @@ crabjar/
 ├── memory/files/             # agent-context crate: knowledge store (SQLite-backed)
 ├── tests/
 │   └── cli.rs                # Integration tests that exercise the compiled binary
-├── js-code-sandbox/          # TypeScript LM Studio code-execution plugin
-├── rag-v1/                   # TypeScript RAG plugin
-├── archive/legacy/           # Retired code — do not import from here
 ├── Cargo.toml                # Workspace root + crabjar binary manifest
 └── Justfile                  # Task runner shortcuts
 ```
 
-The active Rust surface is **`crabjar` (binary) + `crabjar-config` (library) + `agent-context` (library)**. Everything under `archive/` is excluded from the build.
+The active Rust surface is **`crabjar` (binary) + `crabjar-config` (library) + `agent-context` (library)**.
 
 ---
 
@@ -91,7 +88,6 @@ so that agent sessions survive process restarts.
 - The CLI is **synchronous at the command-parsing layer** and async only where I/O requires it (Tokio runtime in `main`).
 - State docs are Markdown files under `<project-root>/state-docs/`. Overlay annotations are stored as JSON sidecars in `state-docs/overlay/`.
 - Workspace config is loaded from `.crabjar_config.toml` in the current working directory. A missing or malformed config is a soft failure — the CLI continues with `workspace: null`.
-- The `js-code-sandbox/` and `rag-v1/` directories are standalone Node/TypeScript plugins and are built independently with `npm install && npm run build` inside each directory.
 
 ---
 
