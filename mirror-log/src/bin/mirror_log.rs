@@ -225,10 +225,11 @@ fn main() {
         }
 
         Commands::Stats => {
-            let (total, _, _, latest) = log::stats(&conn).expect("Failed to get stats");
+            let (total, unique, _, latest) = log::stats(&conn).expect("Failed to get stats");
 
             println!("Ingestion Statistics:");
             println!("  Total events: {}", total);
+            println!("  Unique: {}", unique);
 
             if total > 0 {
                 let newest_dt: DateTime<Utc> = Utc.timestamp_opt(latest, 0).unwrap();

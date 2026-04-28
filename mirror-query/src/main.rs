@@ -66,9 +66,10 @@ struct Event {
 impl Event {
     fn format_time(&self) -> String {
         use chrono::Utc;
-        let dt = chrono::DateTime::<Utc>::from_timestamp(self.timestamp, 0);
-        let dt = dt.expect("timestamp value must be valid");
-        dt.format("%Y-%m-%d %H:%M:%S UTC").to_string()
+        match chrono::DateTime::<Utc>::from_timestamp(self.timestamp, 0) {
+            Some(dt) => dt.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+            None => format!("epoch:{}", self.timestamp),
+        }
     }
 }
 

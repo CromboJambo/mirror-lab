@@ -181,47 +181,77 @@ pub fn append_stdin(
 
 pub fn verify_integrity(conn: &Connection) -> Result<IntegrityReport> {
     let total_events = conn.query_row("SELECT COUNT(*) FROM events", [], |row| row.get(0))?;
-    // This is a simplified placeholder for the actual integrity check logic
+
+    let mut stmt = conn
+        .prepare("SELECT id, content, content_hash FROM events WHERE content_hash IS NOT NULL")?;
+    let rows = stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+        ))
+    })?;
+
+    let mut missing_or_invalid_hashes: i64 = 0;
+    let mut hash_mismatches: i64 = 0;
+
+    for row_result in rows {
+        let (_id, content, stored_hash) = row_result?;
+
+        let mut hasher = Sha256::new();
+        hasher.update(content.as_bytes());
+        let computed_hash = format!("{:x}", hasher.finalize());
+
+        if computed_hash != stored_hash {
+            hash_mismatches += 1;
+        }
+    }
+
+    // Count events with NULL content_hash
+    let null_hashes: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM events WHERE content_hash IS NULL",
+        [],
+        |row| row.get(0),
+    )?;
+    missing_or_invalid_hashes += null_hashes;
+
+    // Count orphan chunks (chunks referencing non-existent events)
+    let orphan_chunks: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM chunks WHERE event_id NOT IN (SELECT id FROM events)",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
     Ok(IntegrityReport {
         total_events,
-        missing_or_invalid_hashes: 0,
-        hash_mismatches: 0,
-        orphan_chunks: 0,
+        missing_or_invalid_hashes,
+        hash_mismatches,
+        orphan_chunks,
     })
 }
 
 pub fn stats(conn: &Connection) -> Result<(i64, i64, i64, i64)> {
-    let total = conn.query_row("SELECT COUNT(*) FROM events", [], |row| row.get(0))?;
+    let total = conn.query_row("SELECT COUNT(*) FROM active_events", [], |row| row.get(0))?;
 
     let unique = conn.query_row(
-        "SELECT COUNT(DISTINCT content_hash) FROM events",
+        "SELECT COUNT(DISTINCT content_hash) FROM active_events",
         [],
         |row| row.get(0),
     )?;
 
     let oldest = conn
-        .query_row("SELECT MIN(timestamp) FROM events", [], |row| {
+        .query_row("SELECT MIN(timestamp) FROM active_events", [], |row| {
             row.get::<_, Option<i64>>(0)
         })
-        .map(|opt| opt.unwrap_or(0))
-        .map(Ok)
-        .unwrap_or(Err(rusqlite::Error::InvalidColumnType(
-            0,
-            "timestamp".to_string(),
-            rusqlite::types::Type::Null,
-        )))?;
+        .map(|opt| opt.unwrap_or(0))?;
 
     let newest = conn
-        .query_row("SELECT MAX(timestamp) FROM events", [], |row| {
+        .query_row("SELECT MAX(timestamp) FROM active_events", [], |row| {
             row.get::<_, Option<i64>>(0)
         })
-        .map(|opt| opt.unwrap_or(0))
-        .map(Ok)
-        .unwrap_or(Err(rusqlite::Error::InvalidColumnType(
-            0,
-            "timestamp".to_string(),
-            rusqlite::types::Type::Null,
-        )))?;
+        .map(|opt| opt.unwrap_or(0))?;
 
     Ok((total, unique, oldest, newest))
 }
