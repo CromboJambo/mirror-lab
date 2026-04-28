@@ -741,7 +741,7 @@ mod tests {
 
     #[test]
     fn test_security_guard_whitelist_approval() {
-        let dir = tempdir().unwrap();
+        let _dir = tempdir().unwrap();
 
         // Use an empty whitelist and manually add the command to ensure no pollution from system environment.
         let mut guard = SecurityGuard {
