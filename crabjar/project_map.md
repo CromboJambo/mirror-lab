@@ -85,6 +85,7 @@ Declared in Cargo.toml `[workspace.dependencies]`:
 - sha2 (0.10)
 - hex (0.4)
 - crossterm (0.28)
+- ratatui (0.29)
 - rand (0.8)
 - clap (4.5, derive)
 - notify (6.1)
@@ -252,14 +253,17 @@ archive/ excluded from build.
 
 ### Last Audit
 
-2026-04-26 — structural drift resolved. All root-level paths, workspace members, and crabjar sub-paths now documented.
+2026-04-27 — monorepo structural drift resolved. Single `Cargo.lock` and `LICENSE` enforced. Standalone repo artifacts cleaned.
 
 ### Known Items
 
 - `mirror.db` files at root, `mirror-kernel/`, `mirror-log/` — runtime SQLite databases, `.gitignore`d
 - Single Git repo — all nested `.git/` removed (2026-04-26). Each crate independently buildable, shareable, forkable
+- Single `Cargo.lock` at workspace root — crate-level locks removed (2026-04-27)
+- Single `LICENSE` (AGPL-3.0-or-later) at workspace root — crate-level licenses removed (2026-04-27)
 - `crabjar/reference_materials/` — excluded from Git (cloned reference repos, not authored code)
 - `zllg/` — WIP standalone crate; confirmed workspace member, documented as multiplexing TUI IDE framework
+- `js-code-sandbox/`, `rag-v1/`, `archive/legacy/` — intentionally removed during monorepo refactor (2026-04-27)
 
 ---
 
