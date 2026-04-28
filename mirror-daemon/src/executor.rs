@@ -45,8 +45,11 @@ impl PipelineExecutor {
 
         // Execute the pipeline
         // For now, we assume Nu is available. Later, this could be configurable.
+        // Pass the raw event payload as an environment variable so pipeline scripts
+        // can access it via $env.MIRROR_PAYLOAD.
         let output = Command::new("nu")
             .arg(pipeline_path)
+            .env("MIRROR_PAYLOAD", &witness)
             .current_dir(&exec_dir)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())

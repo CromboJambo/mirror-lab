@@ -57,9 +57,34 @@ async fn main() -> Result<(), anyhow::Error> {
         Commands::Run => {
             let daemon = MirrorDaemon::new(cli.ledger.clone(), cli.pipelines.clone())?;
             let (tx, rx) = tokio::sync::mpsc::channel::<EventPayload>(32);
-            // Drop the sender immediately so the daemon loop exits cleanly when
-            // no producers are attached (useful for a bare `run` invocation).
-            drop(tx);
+
+            // Load ingress config for watch directory and extensions
+            let config_path = cli.pipelines.join("ingress.toml");
+            let config = ingress::config::Config::load(&config_path)
+                .map_err(|e| anyhow::anyhow!("Failed to load ingress config: {}", e))?;
+
+            // Set up event sources
+            let sources: Vec<Box<dyn ingress::watcher::EventSource>> =
+                vec![Box::new(ingress::watcher::FileWatcher::new(
+                    config.capture.watch_dir.clone(),
+                    config.capture.extensions.clone(),
+                    tx.clone(),
+                ))];
+
+            // Spawn producer task that polls sources
+            let sources = std::sync::Arc::new(sources);
+            tokio::spawn(async move {
+                loop {
+                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                    for source in sources.iter() {
+                        if let Err(e) = source.poll().await {
+                            tracing::error!("Error polling {}: {}", source.name(), e);
+                        }
+                    }
+                }
+            });
+
+            // Run the daemon consumer loop
             daemon.run_async(rx).await?;
             Ok(())
         }
