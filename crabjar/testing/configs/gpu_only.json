@@ -1,0 +1,36 @@
+{
+  "tier": "gpu_only",
+  "description": "Simulates GPU-heavy environment with saturated VRAM",
+  "resources": {
+    "cpu": {
+      "type": "AMD Ryzen 9 5950X",
+      "physical_cores": 16,
+      "logical_threads": 32
+    },
+    "ram": {
+      "total": "128 GiB",
+      "available": "95 GiB",
+      "swap": {
+        "type": "zram",
+        "size": "16 GiB",
+        "used": "0 GiB"
+      }
+    },
+    "gpu": {
+      "name": "NVIDIA GeForce RTX 3090",
+      "vram_total": "24 GiB",
+      "vram_in_use": "23.5 GiB (multiple LLM instances)",
+      "vram_available": "0.5 GiB"
+    },
+    "storage": {
+      "root": { "filesystem": "btrfs", "available": "50 GiB" },
+      "home": { "filesystem": "btrfs", "available": "200 GiB" }
+    }
+  },
+  "constraints": [
+    "VRAM essentially exhausted — cannot load new GPU models",
+    "Fallback to CPU inference required for any new workload",
+    "All filesystems are btrfs — avoid CoW for large model files",
+    "RAM is abundant but GPU bottleneck dominates"
+  ]
+}

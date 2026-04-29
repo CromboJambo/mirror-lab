@@ -1,0 +1,37 @@
+{
+  "tier": "btrfs_full",
+  "description": "Simulates btrfs-heavy environment for CoW sensitivity testing",
+  "resources": {
+    "cpu": {
+      "type": "AMD Ryzen 7 5800X",
+      "physical_cores": 8,
+      "logical_threads": 16
+    },
+    "ram": {
+      "total": "32 GiB",
+      "available": "24 GiB",
+      "swap": {
+        "type": "partition (/dev/sda2)",
+        "size": "8 GiB",
+        "used": "0.5 GiB"
+      }
+    },
+    "gpu": {
+      "name": "NVIDIA GeForce RTX 3060",
+      "vram_total": "12 GiB",
+      "vram_in_use": "4 GiB",
+      "vram_available": "8 GiB"
+    },
+    "storage": {
+      "root": { "filesystem": "btrfs", "available": "20 GiB" },
+      "home": { "filesystem": "btrfs", "available": "100 GiB" },
+      "data": { "filesystem": "btrfs", "available": "500 GiB" }
+    }
+  },
+  "constraints": [
+    "All partitions are btrfs — CoW overhead on large sequential writes",
+    "Swap on btrfs partition — disable CoW for swap file",
+    "Snapshots active — large file operations trigger copy-on-write amplification",
+    "Use chattr +C or nodatacow mount option for model files and databases"
+  ]
+}
