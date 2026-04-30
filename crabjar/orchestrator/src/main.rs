@@ -5,11 +5,10 @@ use axum::{
     routing::post,
 };
 use futures_util::stream;
-use mirror_guard::{CheckContext, SecurityGuard};
+use mirror_guard::{ExecutionGate, GateContext, GateResult};
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
 use std::net::SocketAddr;
-use std::path::PathBuf;
 
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
@@ -479,44 +478,55 @@ async fn execute_tool_call(function_name: &str, args: &[String]) -> String {
             // Security layer: check command before execution.
             let guard_root = std::env::var("MIRROR_GUARD_ROOT")
                 .unwrap_or_else(|_| "/home/crombo/mirror-lab".to_string());
-            let guard = SecurityGuard::new(PathBuf::from(guard_root));
 
-            // Bridge &[String] to &[&str] for the guard check API.
-            let args_str: Vec<&str> = command_args.iter().map(|s| s.as_str()).collect();
+            // Create guard DB and execution gate
+            let guard_db = mirror_guard::GuardDb::open(
+                mirror_guard::GuardDb::from_mirror_path(format!("{}/mirror.db", guard_root))
+            ).unwrap_or_else(|_| {
+                warn!("Failed to open guard DB, using in-memory fallback");
+                mirror_guard::GuardDb::open(":memory:").unwrap()
+            });
 
-            match guard.check(
-                tool,
-                &args_str,
-                None,
-                CheckContext {
-                    event_kind: None,
-                    has_raw_data: false,
-                    has_uncertainty: false,
-                    can_interrupt: false,
-                },
-            ) {
-                mirror_guard::SecurityCheckResult::Approved { ref reason } => {
+            let gate = ExecutionGate::new(&guard_db, false, guard_root);
+
+            match gate.check(GateContext {
+                action_type: "tool_call",
+                command: tool,
+                args: command_args.to_vec(),
+                trust_layer: 2,
+                has_raw_data: true,
+                has_uncertainty: true,
+                can_interrupt: true,
+            }) {
+                Ok(GateResult::Proceed) => {
                     info!(
-                        "Security check passed: {} with args {:?} — {}",
+                        "Security check passed: {} with args {:?}",
+                        tool, command_args
+                    );
+                }
+                Ok(GateResult::Pending) => {
+                    warn!(
+                        "Security check pending review: {} with args {:?}",
+                        tool, command_args
+                    );
+                }
+                Ok(GateResult::Interrupted { ref reason }) => {
+                    error!(
+                        "Security check interrupted: {} with args {:?} — {}",
                         tool, command_args, reason
                     );
-                }
-                mirror_guard::SecurityCheckResult::Flagged { ref warning, risk } => {
-                    warn!(
-                        "Security check flagged: {} with args {:?} — {} (risk: {:?})",
-                        tool, command_args, warning, risk
-                    );
-                    // Flagged commands proceed but with a warning.
-                }
-                mirror_guard::SecurityCheckResult::Denied { ref reason, risk } => {
-                    error!(
-                        "Security check denied: {} with args {:?} — {} (risk: {:?})",
-                        tool, command_args, reason, risk
-                    );
                     return format!(
-                        "Security denied: {} — {}. Risk level: {:?}",
-                        tool, reason, risk
+                        "Security interrupted: {} — {}",
+                        tool, reason
                     );
+                }
+                Ok(GateResult::DryRun) => {
+                    info!("Dry-run mode, skipping execution");
+                    return "Dry-run: would execute".to_string();
+                }
+                Err(e) => {
+                    error!("Security gate error: {}", e);
+                    return format!("Security gate error: {}", e);
                 }
             }
 
