@@ -5,7 +5,7 @@
 //!
 //! # Architecture
 //!
-//! ```
+//! ```text
 //! ┌─────────────────┐     JSONL      ┌──────────────────┐
 //! │  mirror-daemon  │◄─────────────►│  mirror-module   │
 //! │   (orchestrator)│     JSONL      │  (WASM component)│
