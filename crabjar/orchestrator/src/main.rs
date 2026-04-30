@@ -480,9 +480,10 @@ async fn execute_tool_call(function_name: &str, args: &[String]) -> String {
                 .unwrap_or_else(|_| "/home/crombo/mirror-lab".to_string());
 
             // Create guard DB and execution gate
-            let guard_db = mirror_guard::GuardDb::open(
-                mirror_guard::GuardDb::from_mirror_path(format!("{}/mirror.db", guard_root))
-            ).unwrap_or_else(|_| {
+            let guard_db = mirror_guard::GuardDb::open(mirror_guard::GuardDb::from_mirror_path(
+                format!("{}/mirror.db", guard_root),
+            ))
+            .unwrap_or_else(|_| {
                 warn!("Failed to open guard DB, using in-memory fallback");
                 mirror_guard::GuardDb::open(":memory:").unwrap()
             });
@@ -515,10 +516,7 @@ async fn execute_tool_call(function_name: &str, args: &[String]) -> String {
                         "Security check interrupted: {} with args {:?} — {}",
                         tool, command_args, reason
                     );
-                    return format!(
-                        "Security interrupted: {} — {}",
-                        tool, reason
-                    );
+                    return format!("Security interrupted: {} — {}", tool, reason);
                 }
                 Ok(GateResult::DryRun) => {
                     info!("Dry-run mode, skipping execution");
