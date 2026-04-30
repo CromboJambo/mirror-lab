@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS trust_layers (
 INSERT OR IGNORE INTO trust_layers (id, name, min_confidence, max_confidence, auto_execute, requires_review, description) VALUES
     (0, 'raw',          0.0, 0.2, 0, 1, 'Unverified raw observations'),
     (1, 'observed',     0.2, 0.5, 0, 1, 'Observed but not yet confirmed'),
-    (2, 'working',      0.5, 0.8, 1, 0, 'Working knowledge - auto-execute allowed'),
+    (2, 'working',      0.5, 0.8, 0, 1, 'Working knowledge - requires review'),
     (3, 'annealed',     0.8, 1.0, 1, 0, 'Highly annealed, trusted knowledge');
 
 -- ============================================================================
@@ -85,6 +85,7 @@ CREATE INDEX IF NOT EXISTS idx_reviews_time ON review_records(created_at DESC);
 CREATE TABLE IF NOT EXISTS action_requests (
     id TEXT PRIMARY KEY,
     source_event_id TEXT,
+    source_node_id TEXT,
     action_type TEXT NOT NULL,
     payload TEXT NOT NULL,
     trust_layer INTEGER NOT NULL,
@@ -92,7 +93,8 @@ CREATE TABLE IF NOT EXISTS action_requests (
     status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'denied', 'executed', 'interrupted')),
     gate_result TEXT,
     requested_at INTEGER NOT NULL DEFAULT (unixepoch()),
-    resolved_at INTEGER
+    resolved_at INTEGER,
+    FOREIGN KEY (source_node_id) REFERENCES memory_nodes(id) ON DELETE SET NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_actions_status ON action_requests(status);
@@ -149,8 +151,10 @@ SELECT
 FROM memory_nodes n
 JOIN trust_layers tl ON n.trust_layer = tl.id;
 
+CREATE INDEX IF NOT EXISTS idx_actions_node ON action_requests(source_node_id);
+
 CREATE VIEW IF NOT EXISTS pending_actions AS
 SELECT ar.*, n.confidence AS node_confidence
 FROM action_requests ar
-LEFT JOIN memory_nodes n ON ar.source_event_id = n.id
+LEFT JOIN memory_nodes n ON ar.source_node_id = n.id
 WHERE ar.status = 'pending';
