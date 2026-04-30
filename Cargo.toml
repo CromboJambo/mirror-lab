@@ -8,7 +8,7 @@ members = [
     "mirror-query",
     "mirror-log",
     "crabjar/orchestrator",
-    "crabjar/mirror-guard",
+    "mirror-guard",
     "crabjar/src/codeburn",
     "crabjar/src/codeburn-config",
     "crabjar/src/codeburn-provider",
