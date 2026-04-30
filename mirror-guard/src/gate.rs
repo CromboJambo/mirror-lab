@@ -53,21 +53,24 @@ impl<'a> ExecutionGate<'a> {
 
         // 2. Raw data reference check
         if !ctx.has_raw_data {
-            let reason = "Action triggered without raw data reference; detection != authorization".to_string();
+            let reason = "Action triggered without raw data reference; detection != authorization"
+                .to_string();
             warn!(action = %ctx.action_type, %reason, "Gate interrupted");
             return Ok(GateResult::Interrupted { reason });
         }
 
         // 3. Uncertainty exposure
         if !ctx.has_uncertainty {
-            let reason = "Action triggered without uncertainty exposure; gate not enforced".to_string();
+            let reason =
+                "Action triggered without uncertainty exposure; gate not enforced".to_string();
             warn!(action = %ctx.action_type, %reason, "Gate interrupted");
             return Ok(GateResult::Interrupted { reason });
         }
 
         // 4. Interruptibility check
         if !ctx.can_interrupt {
-            let reason = "Action cannot be interrupted; gate safety requirement not met".to_string();
+            let reason =
+                "Action cannot be interrupted; gate safety requirement not met".to_string();
             warn!(action = %ctx.action_type, %reason, "Gate interrupted");
             return Ok(GateResult::Interrupted { reason });
         }
@@ -105,8 +108,9 @@ impl<'a> ExecutionGate<'a> {
                 debug!(
                     action = %ctx.action_type,
                     command = %ctx.command,
-                    "Medium-risk command flagged"
+                    "Medium-risk command requires review"
                 );
+                return Ok(GateResult::Pending);
             }
             CommandRisk::Low => {
                 debug!(action = %ctx.action_type, "Low-risk command approved");
@@ -166,26 +170,81 @@ pub enum CommandRisk {
 }
 
 const HIGH_RISK_COMMANDS: &[&str] = &[
-    "rm", "remove", "del", "delete", "unlink", "sudo", "su", "chmod", "chown",
-    "mkfs", "fdisk", "dd", "iptables", "kill", "killall", "shutdown", "reboot",
-    "halt", "format", "curl", "wget", "nc", "netcat", "socat", "cp", "mv",
-    "tar", "zip", "unzip", "pip install", "npm install", "cargo install",
-    "apt", "apt-get", "yum", "dnf", "pacman",
+    "rm",
+    "remove",
+    "del",
+    "delete",
+    "unlink",
+    "sudo",
+    "su",
+    "chmod",
+    "chown",
+    "mkfs",
+    "fdisk",
+    "dd",
+    "iptables",
+    "kill",
+    "killall",
+    "shutdown",
+    "reboot",
+    "halt",
+    "format",
+    "curl",
+    "wget",
+    "nc",
+    "netcat",
+    "socat",
+    "cp",
+    "mv",
+    "tar",
+    "zip",
+    "unzip",
+    "pip install",
+    "npm install",
+    "cargo install",
+    "apt",
+    "apt-get",
+    "yum",
+    "dnf",
+    "pacman",
 ];
 
 const MEDIUM_RISK_COMMANDS: &[&str] = &[
-    "git", "clone", "checkout", "branch", "docker", "podman", "ssh", "scp",
-    "rsync", "vim", "vi", "nano", "emacs", "cargo", "rustc", "python",
-    "pip", "node", "npm", "npx",
+    "git", "clone", "checkout", "branch", "docker", "podman", "ssh", "scp", "rsync", "vim", "vi",
+    "nano", "emacs", "cargo", "rustc", "python", "pip", "node", "npm", "npx",
 ];
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::annealing::AnnealingPipeline;
+    use crate::memory::MemoryGraph;
+    use crate::types::NodeKind;
+    use crate::types::TrustScore;
     use tempfile::tempdir;
 
     #[test]
     fn test_gate_proceeds_for_trusted_action() {
+        let dir = tempdir().unwrap();
+        let db = GuardDb::open(dir.path().join("guard.db")).unwrap();
+        let gate = ExecutionGate::new(&db, false, dir.path());
+
+        let ctx = GateContext {
+            action_type: "echo",
+            command: "echo",
+            args: vec!["hello".to_string()],
+            trust_layer: 3,
+            has_raw_data: true,
+            has_uncertainty: true,
+            can_interrupt: true,
+        };
+
+        let result = gate.check(ctx).unwrap();
+        assert_eq!(result, GateResult::Proceed);
+    }
+
+    #[test]
+    fn test_gate_pending_for_working_layer() {
         let dir = tempdir().unwrap();
         let db = GuardDb::open(dir.path().join("guard.db")).unwrap();
         let gate = ExecutionGate::new(&db, false, dir.path());
@@ -201,7 +260,7 @@ mod tests {
         };
 
         let result = gate.check(ctx).unwrap();
-        assert_eq!(result, GateResult::Proceed);
+        assert_eq!(result, GateResult::Pending);
     }
 
     #[test]
@@ -282,5 +341,53 @@ mod tests {
 
         let result = gate.check(ctx).unwrap();
         assert!(matches!(result, GateResult::Interrupted { .. }));
+    }
+
+    #[test]
+    fn test_medium_risk_command_pending() {
+        let dir = tempdir().unwrap();
+        let db = GuardDb::open(dir.path().join("guard.db")).unwrap();
+        let gate = ExecutionGate::new(&db, false, dir.path());
+
+        let ctx = GateContext {
+            action_type: "git_commit",
+            command: "git",
+            args: vec!["commit".to_string(), "-m".to_string(), "test".to_string()],
+            trust_layer: 3,
+            has_raw_data: true,
+            has_uncertainty: true,
+            can_interrupt: true,
+        };
+
+        let result = gate.check(ctx).unwrap();
+        assert_eq!(result, GateResult::Pending);
+    }
+
+    #[test]
+    fn test_source_event_node_distinct() {
+        let dir = tempdir().unwrap();
+        let db = GuardDb::open(dir.path().join("guard.db")).unwrap();
+        let mg = MemoryGraph::new(&db);
+        let pipeline = AnnealingPipeline::new(&db);
+
+        let node_id = mg
+            .add_node(NodeKind::Fact, "distinct ids", TrustScore::new(0.5))
+            .unwrap();
+
+        let pipeline = pipeline.unwrap();
+        let request = pipeline
+            .request_action(
+                Some("raw-event-123".to_string()),
+                Some(node_id.clone()),
+                "test_action",
+                "payload",
+                3,
+                TrustScore::new(0.9),
+            )
+            .unwrap();
+
+        assert_eq!(request.source_event_id, Some("raw-event-123".to_string()));
+        assert_eq!(request.source_node_id, Some(node_id));
+        assert_ne!(request.source_event_id, request.source_node_id);
     }
 }
