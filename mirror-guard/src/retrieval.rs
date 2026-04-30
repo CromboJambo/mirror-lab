@@ -92,7 +92,11 @@ impl<'a> RetrievalEngine<'a> {
     }
 
     /// Retrieve nodes that haven't been touched recently (stale detection).
-    pub fn retrieve_stale(&self, max_age_seconds: i64, limit: usize) -> Result<Vec<MemoryNode>, GuardDbError> {
+    pub fn retrieve_stale(
+        &self,
+        max_age_seconds: i64,
+        limit: usize,
+    ) -> Result<Vec<MemoryNode>, GuardDbError> {
         let band = RetrievalBand {
             max_results: limit,
             ..RetrievalBand::default()
@@ -115,12 +119,12 @@ impl<'a> RetrievalEngine<'a> {
              FROM trust_layers tl
              LEFT JOIN memory_nodes n ON tl.id = n.trust_layer
              GROUP BY tl.id
-             ORDER BY tl.id"
+             ORDER BY tl.id",
         )?;
 
-        let dist: Vec<(u32, String, u64)> = stmt.query_map([], |row| {
-            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
-        })?.collect::<Result<_, _>>()?;
+        let dist: Vec<(u32, String, u64)> = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+            .collect::<Result<_, _>>()?;
 
         Ok(dist)
     }
@@ -143,8 +147,10 @@ mod tests {
         let engine = RetrievalEngine::new(&db);
         let mg = MemoryGraph::new(&db);
 
-        mg.add_node(NodeKind::Fact, "low trust", TrustScore::new(0.2)).unwrap();
-        mg.add_node(NodeKind::Fact, "high trust", TrustScore::new(0.9)).unwrap();
+        mg.add_node(NodeKind::Fact, "low trust", TrustScore::new(0.2))
+            .unwrap();
+        mg.add_node(NodeKind::Fact, "high trust", TrustScore::new(0.9))
+            .unwrap();
 
         let annealed = engine.retrieve_annealed(10).unwrap();
         assert!(annealed.iter().all(|n| n.confidence.get() >= 0.8));
@@ -157,8 +163,10 @@ mod tests {
         let engine = RetrievalEngine::new(&db);
         let mg = MemoryGraph::new(&db);
 
-        mg.add_node(NodeKind::Fact, "rust search term", TrustScore::new(0.9)).unwrap();
-        mg.add_node(NodeKind::Fact, "rust low trust", TrustScore::new(0.2)).unwrap();
+        mg.add_node(NodeKind::Fact, "rust search term", TrustScore::new(0.9))
+            .unwrap();
+        mg.add_node(NodeKind::Fact, "rust low trust", TrustScore::new(0.2))
+            .unwrap();
 
         let results = engine.search("rust", 2, 10).unwrap();
         assert!(results.iter().all(|n| n.trust_layer >= 2));
