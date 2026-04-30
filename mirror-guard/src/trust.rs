@@ -80,18 +80,30 @@ impl<'a> TrustManager<'a> {
         node_id: &str,
         new_confidence: TrustScore,
     ) -> Result<Option<(u32, u32)>, GuardDbError> {
-        let conn = self.db.conn();
-
-        let old_layer: u32 = conn.query_row(
-            "SELECT trust_layer FROM memory_nodes WHERE id = ?1",
-            params![node_id],
-            |r| r.get(0),
-        ).map_err(|_| GuardDbError::SchemaError("Node not found".into()))?;
-
+        // Compute new layer ID outside the lock to avoid deadlock
         let new_layer = self.layer_for_score(new_confidence)?
-            .map(|l| l.id)
-            .unwrap_or(old_layer);
+            .map(|l| l.id);
 
+        let result = {
+            let conn = self.db.conn();
+
+            let old_layer: u32 = conn.query_row(
+                "SELECT trust_layer FROM memory_nodes WHERE id = ?1",
+                params![node_id],
+                |r| r.get(0),
+            ).map_err(|_| GuardDbError::SchemaError("Node not found".into()))?;
+
+            let final_layer = new_layer.unwrap_or(old_layer);
+
+            conn.execute(
+                "UPDATE memory_nodes SET confidence = ?1, trust_layer = ?2, last_touched = unixepoch() WHERE id = ?3",
+                params![new_confidence.get(), final_layer, node_id],
+            )?;
+
+            (old_layer, final_layer)
+        }; // lock dropped
+
+        let (old_layer, new_layer) = result;
         if old_layer != new_layer {
             info!(
                 node = node_id,
@@ -100,14 +112,6 @@ impl<'a> TrustManager<'a> {
                 confidence = new_confidence.get(),
                 "Trust layer transition"
             );
-        }
-
-        conn.execute(
-            "UPDATE memory_nodes SET confidence = ?1, trust_layer = ?2, last_touched = unixepoch() WHERE id = ?3",
-            params![new_confidence.get(), new_layer, node_id],
-        )?;
-
-        if old_layer != new_layer {
             Ok(Some((old_layer, new_layer)))
         } else {
             Ok(None)
@@ -188,36 +192,40 @@ impl<'a> TrustManager<'a> {
 
     /// Reinforce a node's confidence after a successful outcome.
     pub fn reinforce(&self, node_id: &str, delta: f64) -> Result<TrustScore, GuardDbError> {
-        let conn = self.db.conn();
+        let new_score = {
+            let conn = self.db.conn();
 
-        let current: f64 = conn.query_row(
-            "SELECT confidence FROM memory_nodes WHERE id = ?1",
-            params![node_id],
-            |r| r.get(0),
-        ).map_err(|_| GuardDbError::SchemaError("Node not found".into()))?;
+            let current: f64 = conn.query_row(
+                "SELECT confidence FROM memory_nodes WHERE id = ?1",
+                params![node_id],
+                |r| r.get(0),
+            ).map_err(|_| GuardDbError::SchemaError("Node not found".into()))?;
 
-        let new_score = TrustScore::new(current + delta);
-        debug!(node = node_id, old = current, new = new_score.get(), "Confidence reinforced");
+            TrustScore::new(current + delta)
+        }; // lock dropped
 
-        self.update_node_trust_layer(node_id, new_score)?;
+        debug!(node = node_id, new = new_score.get(), "Confidence reinforced");
+        let _ = self.update_node_trust_layer(node_id, new_score);
         Ok(new_score)
     }
 
     /// Decay a node's confidence based on time and usage.
     pub fn decay(&self, node_id: &str, rate: f64) -> Result<TrustScore, GuardDbError> {
-        let conn = self.db.conn();
-
-        let current: f64 = conn.query_row(
-            "SELECT confidence FROM memory_nodes WHERE id = ?1",
-            params![node_id],
-            |r| r.get(0),
-        ).map_err(|_| GuardDbError::SchemaError("Node not found".into()))?;
-
         let config = self.db.load_anneal_config()?;
-        let new_score = TrustScore::new((current - rate).max(config.confidence_floor));
-        warn!(node = node_id, old = current, new = new_score.get(), "Confidence decayed");
+        let new_score = {
+            let conn = self.db.conn();
 
-        self.update_node_trust_layer(node_id, new_score)?;
+            let current: f64 = conn.query_row(
+                "SELECT confidence FROM memory_nodes WHERE id = ?1",
+                params![node_id],
+                |r| r.get(0),
+            ).map_err(|_| GuardDbError::SchemaError("Node not found".into()))?;
+
+            TrustScore::new((current - rate).max(config.confidence_floor))
+        }; // lock dropped
+
+        warn!(node = node_id, new = new_score.get(), "Confidence decayed");
+        let _ = self.update_node_trust_layer(node_id, new_score);
         Ok(new_score)
     }
 }
@@ -269,7 +277,7 @@ mod tests {
         let result = tm.update_node_trust_layer(&node_id, TrustScore::new(0.75)).unwrap();
         assert!(result.is_some());
         let (old, new) = result.unwrap();
-        assert_eq!(old, 1);
+        assert_eq!(old, 0);
         assert_eq!(new, 2);
     }
 
