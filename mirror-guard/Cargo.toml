@@ -1,0 +1,51 @@
+[package]
+name = "mirror-guard"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Annealing knowledge distillation, trust-layer retrieval, and execution gating"
+
+[dependencies]
+# Gitignore pattern matching
+ignore.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+
+# Error handling
+thiserror.workspace = true
+anyhow.workspace = true
+
+# Database
+rusqlite.workspace = true
+
+# Time
+chrono.workspace = true
+
+# UUID
+uuid.workspace = true
+
+# Hashing
+sha2.workspace = true
+hex.workspace = true
+
+# Tracing
+tracing.workspace = true
+
+# Path utilities
+path-absolutize.workspace = true
+
+# Regex
+regex.workspace = true
+
+# CLI
+clap.workspace = true
+
+# Async
+tokio.workspace = true
+async-trait.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
