@@ -1,9 +1,9 @@
 use std::path::Path;
 
 use crate::error::{Result, ZllgError};
+use crate::layout;
 use crate::logger::ZllgLogger;
 use crate::tools;
-use crate::layout;
 
 pub enum GateResult {
     Proceed,
@@ -37,16 +37,16 @@ impl<'a> ExecutionGate<'a> {
         }
 
         // 2. Layout exists
-        let layout_path = layout::resolve_layout(layout_name).map_err(|e| {
-            ZllgError::layout(format!("layout resolution failed: {e}"))
-        })?;
+        let layout_path = layout::resolve_layout(layout_name)
+            .map_err(|e| ZllgError::layout(format!("layout resolution failed: {e}")))?;
 
         // 3. Raw data capture in meta
         let meta = serde_json::json!({
             "project_type": layout_name,
             "layout": layout_path.display().to_string(),
             "dir": cwd.display().to_string(),
-        }).to_string();
+        })
+        .to_string();
 
         // 4. Dry-run check
         if self.dry_run {
