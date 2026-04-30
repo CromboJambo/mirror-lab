@@ -43,19 +43,21 @@ impl<'a> MemoryGraph<'a> {
             "SELECT id, kind, content, trust_layer, confidence, created_at, last_touched, anneal_count, metadata FROM memory_nodes WHERE id = ?1"
         )?;
 
-        let node = stmt.query_row(params![id], |row| {
-            Ok(MemoryNode {
-                id: row.get(0)?,
-                kind: self.parse_kind(row.get(1)?),
-                content: row.get(2)?,
-                trust_layer: row.get(3)?,
-                confidence: TrustScore::new(row.get(4)?),
-                created_at: row.get(5)?,
-                last_touched: row.get(6)?,
-                anneal_count: row.get(7)?,
-                metadata: row.get(8)?,
+        let node = stmt
+            .query_row(params![id], |row| {
+                Ok(MemoryNode {
+                    id: row.get(0)?,
+                    kind: self.parse_kind(row.get(1)?),
+                    content: row.get(2)?,
+                    trust_layer: row.get(3)?,
+                    confidence: TrustScore::new(row.get(4)?),
+                    created_at: row.get(5)?,
+                    last_touched: row.get(6)?,
+                    anneal_count: row.get(7)?,
+                    metadata: row.get(8)?,
+                })
             })
-        }).ok();
+            .ok();
 
         Ok(node)
     }
@@ -118,10 +120,7 @@ impl<'a> MemoryGraph<'a> {
     /// Remove an edge by ID.
     pub fn remove_edge(&self, edge_id: &str) -> Result<bool, GuardDbError> {
         let conn = self.db.conn();
-        let rows = conn.execute(
-            "DELETE FROM memory_edges WHERE id = ?1",
-            params![edge_id],
-        )?;
+        let rows = conn.execute("DELETE FROM memory_edges WHERE id = ?1", params![edge_id])?;
         Ok(rows > 0)
     }
 
@@ -132,16 +131,18 @@ impl<'a> MemoryGraph<'a> {
             "SELECT id, from_id, to_id, relation, weight, created_at FROM memory_edges WHERE from_id = ?1"
         )?;
 
-        let edges: Vec<MemoryEdge> = stmt.query_map(params![node_id], |row| {
-            Ok(MemoryEdge {
-                id: row.get(0)?,
-                from_id: row.get(1)?,
-                to_id: row.get(2)?,
-                relation: self.parse_relation(row.get(3)?),
-                weight: row.get(4)?,
-                created_at: row.get(5)?,
-            })
-        })?.collect::<Result<_, _>>()?;
+        let edges: Vec<MemoryEdge> = stmt
+            .query_map(params![node_id], |row| {
+                Ok(MemoryEdge {
+                    id: row.get(0)?,
+                    from_id: row.get(1)?,
+                    to_id: row.get(2)?,
+                    relation: self.parse_relation(row.get(3)?),
+                    weight: row.get(4)?,
+                    created_at: row.get(5)?,
+                })
+            })?
+            .collect::<Result<_, _>>()?;
 
         Ok(edges)
     }
@@ -153,16 +154,18 @@ impl<'a> MemoryGraph<'a> {
             "SELECT id, from_id, to_id, relation, weight, created_at FROM memory_edges WHERE to_id = ?1"
         )?;
 
-        let edges: Vec<MemoryEdge> = stmt.query_map(params![node_id], |row| {
-            Ok(MemoryEdge {
-                id: row.get(0)?,
-                from_id: row.get(1)?,
-                to_id: row.get(2)?,
-                relation: self.parse_relation(row.get(3)?),
-                weight: row.get(4)?,
-                created_at: row.get(5)?,
-            })
-        })?.collect::<Result<_, _>>()?;
+        let edges: Vec<MemoryEdge> = stmt
+            .query_map(params![node_id], |row| {
+                Ok(MemoryEdge {
+                    id: row.get(0)?,
+                    from_id: row.get(1)?,
+                    to_id: row.get(2)?,
+                    relation: self.parse_relation(row.get(3)?),
+                    weight: row.get(4)?,
+                    created_at: row.get(5)?,
+                })
+            })?
+            .collect::<Result<_, _>>()?;
 
         Ok(edges)
     }
@@ -185,33 +188,42 @@ impl<'a> MemoryGraph<'a> {
         ];
 
         if let Some(ref kinds) = band.kinds {
-            query.push_str(&format!(" AND n.kind IN ({})",
-                (0..kinds.len()).map(|_| "?".to_string()).collect::<Vec<_>>().join(", ")
+            query.push_str(&format!(
+                " AND n.kind IN ({})",
+                (0..kinds.len())
+                    .map(|_| "?".to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
             ));
             for kind in kinds {
                 params.push(Box::new(format!("{}", kind)));
             }
         }
 
-        query.push_str(&format!(" ORDER BY n.confidence DESC LIMIT {}", band.max_results));
+        query.push_str(&format!(
+            " ORDER BY n.confidence DESC LIMIT {}",
+            band.max_results
+        ));
 
         let mut stmt = conn.prepare(&query)?;
-        let nodes: Vec<MemoryNode> = stmt.query_map(
-            rusqlite::params_from_iter(params.iter().map(|p| p.as_ref())),
-            |row| {
-                Ok(MemoryNode {
-                    id: row.get(0)?,
-                    kind: self.parse_kind(row.get(1)?),
-                    content: row.get(2)?,
-                    trust_layer: row.get(3)?,
-                    confidence: TrustScore::new(row.get(4)?),
-                    created_at: row.get(5)?,
-                    last_touched: row.get(6)?,
-                    anneal_count: row.get(7)?,
-                    metadata: row.get(8)?,
-                })
-            },
-        )?.collect::<Result<_, _>>()?;
+        let nodes: Vec<MemoryNode> = stmt
+            .query_map(
+                rusqlite::params_from_iter(params.iter().map(|p| p.as_ref())),
+                |row| {
+                    Ok(MemoryNode {
+                        id: row.get(0)?,
+                        kind: self.parse_kind(row.get(1)?),
+                        content: row.get(2)?,
+                        trust_layer: row.get(3)?,
+                        confidence: TrustScore::new(row.get(4)?),
+                        created_at: row.get(5)?,
+                        last_touched: row.get(6)?,
+                        anneal_count: row.get(7)?,
+                        metadata: row.get(8)?,
+                    })
+                },
+            )?
+            .collect::<Result<_, _>>()?;
 
         Ok(nodes)
     }
@@ -229,9 +241,8 @@ impl<'a> MemoryGraph<'a> {
              LIMIT ?2"
         )?;
 
-        let nodes: Vec<MemoryNode> = stmt.query_map(
-            params![pattern, limit],
-            |row| {
+        let nodes: Vec<MemoryNode> = stmt
+            .query_map(params![pattern, limit], |row| {
                 Ok(MemoryNode {
                     id: row.get(0)?,
                     kind: self.parse_kind(row.get(1)?),
@@ -243,8 +254,8 @@ impl<'a> MemoryGraph<'a> {
                     anneal_count: row.get(7)?,
                     metadata: row.get(8)?,
                 })
-            },
-        )?.collect::<Result<_, _>>()?;
+            })?
+            .collect::<Result<_, _>>()?;
 
         Ok(nodes)
     }
@@ -252,11 +263,13 @@ impl<'a> MemoryGraph<'a> {
     /// Increment anneal count for a node (called during annealing passes).
     pub fn increment_anneal_count(&self, node_id: &str) -> Result<u32, GuardDbError> {
         let conn = self.db.conn();
-        let new_count: u32 = conn.query_row(
-            "SELECT anneal_count + 1 FROM memory_nodes WHERE id = ?1",
-            params![node_id],
-            |r| r.get(0),
-        ).map_err(|_| GuardDbError::SchemaError("Node not found".into()))?;
+        let new_count: u32 = conn
+            .query_row(
+                "SELECT anneal_count + 1 FROM memory_nodes WHERE id = ?1",
+                params![node_id],
+                |r| r.get(0),
+            )
+            .map_err(|_| GuardDbError::SchemaError("Node not found".into()))?;
 
         conn.execute(
             "UPDATE memory_nodes SET anneal_count = ?1, last_touched = unixepoch() WHERE id = ?2",
@@ -311,7 +324,9 @@ mod tests {
         let db = GuardDb::open(dir.path().join("guard.db")).unwrap();
         let mg = MemoryGraph::new(&db);
 
-        let id = mg.add_node(NodeKind::Fact, "hello world", TrustScore::new(0.7)).unwrap();
+        let id = mg
+            .add_node(NodeKind::Fact, "hello world", TrustScore::new(0.7))
+            .unwrap();
         let node = mg.get_node(&id).unwrap().unwrap();
 
         assert_eq!(node.kind, NodeKind::Fact);
@@ -325,8 +340,12 @@ mod tests {
         let db = GuardDb::open(dir.path().join("guard.db")).unwrap();
         let mg = MemoryGraph::new(&db);
 
-        let a = mg.add_node(NodeKind::Fact, "A", TrustScore::new(0.8)).unwrap();
-        let b = mg.add_node(NodeKind::Fact, "B", TrustScore::new(0.6)).unwrap();
+        let a = mg
+            .add_node(NodeKind::Fact, "A", TrustScore::new(0.8))
+            .unwrap();
+        let b = mg
+            .add_node(NodeKind::Fact, "B", TrustScore::new(0.6))
+            .unwrap();
 
         mg.add_edge(&a, &b, EdgeRelation::Supports, 0.9).unwrap();
 
@@ -344,9 +363,12 @@ mod tests {
         let db = GuardDb::open(dir.path().join("guard.db")).unwrap();
         let mg = MemoryGraph::new(&db);
 
-        mg.add_node(NodeKind::Fact, "low confidence", TrustScore::new(0.2)).unwrap();
-        mg.add_node(NodeKind::Fact, "high confidence", TrustScore::new(0.9)).unwrap();
-        mg.add_node(NodeKind::Rule, "a rule", TrustScore::new(0.7)).unwrap();
+        mg.add_node(NodeKind::Fact, "low confidence", TrustScore::new(0.2))
+            .unwrap();
+        mg.add_node(NodeKind::Fact, "high confidence", TrustScore::new(0.9))
+            .unwrap();
+        mg.add_node(NodeKind::Rule, "a rule", TrustScore::new(0.7))
+            .unwrap();
 
         let band = RetrievalBand::annealed_only();
         let results = mg.query_band(&band).unwrap();
@@ -359,8 +381,10 @@ mod tests {
         let db = GuardDb::open(dir.path().join("guard.db")).unwrap();
         let mg = MemoryGraph::new(&db);
 
-        mg.add_node(NodeKind::Fact, "rust is great", TrustScore::new(0.8)).unwrap();
-        mg.add_node(NodeKind::Fact, "python is ok", TrustScore::new(0.6)).unwrap();
+        mg.add_node(NodeKind::Fact, "rust is great", TrustScore::new(0.8))
+            .unwrap();
+        mg.add_node(NodeKind::Fact, "python is ok", TrustScore::new(0.6))
+            .unwrap();
 
         let results = mg.search_nodes("rust", 10).unwrap();
         assert_eq!(results.len(), 1);
@@ -373,7 +397,9 @@ mod tests {
         let db = GuardDb::open(dir.path().join("guard.db")).unwrap();
         let mg = MemoryGraph::new(&db);
 
-        let id = mg.add_node(NodeKind::Fact, "test", TrustScore::new(0.5)).unwrap();
+        let id = mg
+            .add_node(NodeKind::Fact, "test", TrustScore::new(0.5))
+            .unwrap();
 
         let count1 = mg.increment_anneal_count(&id).unwrap();
         assert_eq!(count1, 1);
