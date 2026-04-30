@@ -12,9 +12,7 @@ impl ZllgLogger {
     /// Open a connection to the mirror-log database.
     /// If the DB cannot be opened, the logger operates in no-op mode.
     pub fn new() -> Self {
-        let db_path = data_dir()
-            .join("zllg")
-            .join("mirror.log.sqlite");
+        let db_path = data_dir().join("zllg").join("mirror.log.sqlite");
 
         let conn = mirror_log::db::init_db(&db_path).ok();
 
@@ -26,9 +24,7 @@ impl ZllgLogger {
         if let Some(ref conn) = self.conn {
             mirror_log::append(conn, "zllg", content, meta)
                 .map(|_| ())
-                .map_err(|e| {
-                ZllgError::logging(format!("mirror-log append failed: {e}"))
-            })
+                .map_err(|e| ZllgError::logging(format!("mirror-log append failed: {e}")))
         } else {
             Ok(())
         }
@@ -37,6 +33,12 @@ impl ZllgLogger {
     /// Returns true if the DB connection is live.
     pub fn is_active(&self) -> bool {
         self.conn.is_some()
+    }
+}
+
+impl Default for ZllgLogger {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
