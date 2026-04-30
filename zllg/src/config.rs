@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+use crate::error::{Result, ZllgError};
+
 /// A registered pane definition in the config.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaneConfig {
@@ -99,24 +101,24 @@ pub fn config_path() -> PathBuf {
 }
 
 /// Load config from disk, returning defaults if the file is absent.
-pub fn load_config() -> anyhow::Result<ZllgConfig> {
+pub fn load_config() -> Result<ZllgConfig> {
     let path = config_path();
     if !path.exists() {
         return Ok(ZllgConfig::default());
     }
-    let raw = std::fs::read_to_string(&path)?;
+    let raw = std::fs::read_to_string(&path).map_err(|e| ZllgError::config(e.to_string()))?;
     let cfg: ZllgConfig = toml::from_str(&raw)?;
     Ok(cfg)
 }
 
 /// Write the default config to disk (used by `zllg init`).
-pub fn write_default_config() -> anyhow::Result<PathBuf> {
+pub fn write_default_config() -> Result<PathBuf> {
     let path = config_path();
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
+        std::fs::create_dir_all(parent).map_err(|e| ZllgError::config(e.to_string()))?;
     }
     let default = ZllgConfig::default();
     let rendered = toml::to_string_pretty(&default)?;
-    std::fs::write(&path, rendered)?;
+    std::fs::write(&path, rendered).map_err(|e| ZllgError::config(e.to_string()))?;
     Ok(path)
 }
