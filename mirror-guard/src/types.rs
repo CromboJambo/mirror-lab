@@ -124,12 +124,12 @@ pub struct MemoryEdge {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrustLayer {
     pub id: u32,
-    name: String,
+    pub(crate) name: String,
     pub min_confidence: f64,
     pub max_confidence: f64,
     pub auto_execute: bool,
     pub requires_review: bool,
-    description: Option<String>,
+    pub(crate) description: Option<String>,
 }
 
 impl TrustLayer {
