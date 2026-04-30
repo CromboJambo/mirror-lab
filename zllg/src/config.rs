@@ -106,7 +106,7 @@ pub fn load_config() -> Result<ZllgConfig> {
     if !path.exists() {
         return Ok(ZllgConfig::default());
     }
-    let raw = std::fs::read_to_string(&path).map_err(|e| ZllgError::config(e.to_string()))?;
+    let raw = std::fs::read_to_string(&path).map_err(|e| ZllgError::config(&e.to_string()))?;
     let cfg: ZllgConfig = toml::from_str(&raw)?;
     Ok(cfg)
 }
@@ -115,10 +115,10 @@ pub fn load_config() -> Result<ZllgConfig> {
 pub fn write_default_config() -> Result<PathBuf> {
     let path = config_path();
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| ZllgError::config(e.to_string()))?;
+        std::fs::create_dir_all(parent).map_err(|e| ZllgError::config(&e.to_string()))?;
     }
     let default = ZllgConfig::default();
     let rendered = toml::to_string_pretty(&default)?;
-    std::fs::write(&path, rendered).map_err(|e| ZllgError::config(e.to_string()))?;
+    std::fs::write(&path, rendered).map_err(|e| ZllgError::config(&e.to_string()))?;
     Ok(path)
 }
