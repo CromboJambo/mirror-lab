@@ -1,6 +1,6 @@
 use rusqlite::{Connection, params};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use thiserror::Error;
 
 use crate::types::*;
@@ -20,7 +20,7 @@ pub enum GuardDbError {
 /// Manages the guard database connection and schema initialization.
 /// Uses a separate DB file from mirror-log to maintain detection/action separation.
 pub struct GuardDb {
-    conn: Mutex<Connection>,
+    conn: Arc<Mutex<Connection>>,
 }
 
 impl GuardDb {
@@ -29,7 +29,7 @@ impl GuardDb {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, GuardDbError> {
         let conn = Connection::open(path)?;
         let db = Self {
-            conn: Mutex::new(conn),
+            conn: Arc::new(Mutex::new(conn)),
         };
         db.init_schema()?;
         Ok(db)
@@ -54,10 +54,6 @@ impl GuardDb {
         let conn = self.conn.lock().unwrap();
         conn.execute_batch(schema)?;
         Ok(())
-    }
-
-    pub fn connection(&self) -> Mutex<Connection> {
-        self.conn.clone()
     }
 
     /// Get a guarded reference to the connection.
