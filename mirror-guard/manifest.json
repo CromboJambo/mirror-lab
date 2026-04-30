@@ -1,0 +1,7 @@
+{
+  "role": "Security guard for command execution checks",
+  "entry_points": ["Cargo.toml", "src/"],
+  "dependencies": ["None"],
+  "data_source": "None",
+  "capabilities": ["Security check", "Gitignore matching"]
+}
