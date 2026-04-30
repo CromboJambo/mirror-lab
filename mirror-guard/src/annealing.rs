@@ -143,19 +143,21 @@ impl<'a> AnnealingPipeline<'a> {
              LIMIT 20"
         )?;
 
-        let nodes: Vec<MemoryNode> = stmt.query_map(params![doubt_threshold], |row| {
-            Ok(MemoryNode {
-                id: row.get(0)?,
-                kind: self.parse_kind(row.get(1)?),
-                content: row.get(2)?,
-                trust_layer: row.get(3)?,
-                confidence: TrustScore::new(row.get(4)?),
-                created_at: row.get(5)?,
-                last_touched: row.get(6)?,
-                anneal_count: row.get(7)?,
-                metadata: row.get(8)?,
-            })
-        })?.collect::<Result<_, _>>()?;
+        let nodes: Vec<MemoryNode> = stmt
+            .query_map(params![doubt_threshold], |row| {
+                Ok(MemoryNode {
+                    id: row.get(0)?,
+                    kind: self.parse_kind(row.get(1)?),
+                    content: row.get(2)?,
+                    trust_layer: row.get(3)?,
+                    confidence: TrustScore::new(row.get(4)?),
+                    created_at: row.get(5)?,
+                    last_touched: row.get(6)?,
+                    anneal_count: row.get(7)?,
+                    metadata: row.get(8)?,
+                })
+            })?
+            .collect::<Result<_, _>>()?;
 
         if !nodes.is_empty() {
             warn!(
@@ -170,10 +172,7 @@ impl<'a> AnnealingPipeline<'a> {
     }
 
     /// Record an action outcome and update related node confidence.
-    pub fn record_outcome(
-        &self,
-        outcome: &ActionOutcome,
-    ) -> Result<(), GuardDbError> {
+    pub fn record_outcome(&self, outcome: &ActionOutcome) -> Result<(), GuardDbError> {
         // Phase 1: Write outcome and capture source_id (hold lock)
         let source_id = {
             let conn = self.db.conn();
@@ -199,22 +198,30 @@ impl<'a> AnnealingPipeline<'a> {
             )?;
 
             conn.query_row(
-                "SELECT source_event_id FROM action_requests WHERE id = ?1",
+                "SELECT source_node_id FROM action_requests WHERE id = ?1",
                 params![outcome.action_id],
                 |r| r.get::<_, Option<String>>(0),
-            ).ok().flatten()
+            )
+            .ok()
+            .flatten()
         }; // Lock dropped here
 
         // Phase 2: Update node confidence (no lock held)
         if let Some(ref node_id) = source_id {
             if outcome.success {
-                let _ = self.trust.reinforce(node_id, outcome.confidence_delta.abs());
+                let _ = self
+                    .trust
+                    .reinforce(node_id, outcome.confidence_delta.abs());
             } else {
                 let _ = self.trust.decay(node_id, outcome.confidence_delta.abs());
             }
         }
 
-        debug!(outcome_id = outcome.id, success = outcome.success, "Action outcome recorded");
+        debug!(
+            outcome_id = outcome.id,
+            success = outcome.success,
+            "Action outcome recorded"
+        );
         Ok(())
     }
 
@@ -222,6 +229,7 @@ impl<'a> AnnealingPipeline<'a> {
     pub fn request_action(
         &self,
         source_event_id: Option<String>,
+        source_node_id: Option<String>,
         action_type: impl Into<String>,
         payload: impl Into<String>,
         trust_layer: u32,
@@ -244,11 +252,12 @@ impl<'a> AnnealingPipeline<'a> {
 
         let conn = self.db.conn();
         conn.execute(
-            "INSERT INTO action_requests (id, source_event_id, action_type, payload, trust_layer, confidence, status, requested_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, unixepoch())",
+            "INSERT INTO action_requests (id, source_event_id, source_node_id, action_type, payload, trust_layer, confidence, status, requested_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, unixepoch())",
             params![
                 id,
                 &source_event_id,
+                &source_node_id,
                 action_type,
                 payload,
                 trust_layer,
@@ -272,6 +281,7 @@ impl<'a> AnnealingPipeline<'a> {
         Ok(ActionRequest {
             id,
             source_event_id,
+            source_node_id,
             action_type,
             payload,
             trust_layer,
@@ -301,7 +311,11 @@ impl<'a> AnnealingPipeline<'a> {
         base_decay * anneal_factor
     }
 
-    fn count_layer_transitions(&self, old_nodes: &[MemoryNode], upward: bool) -> Result<u32, GuardDbError> {
+    fn count_layer_transitions(
+        &self,
+        old_nodes: &[MemoryNode],
+        upward: bool,
+    ) -> Result<u32, GuardDbError> {
         let mut count = 0u32;
 
         for old in old_nodes {
@@ -322,17 +336,13 @@ impl<'a> AnnealingPipeline<'a> {
         let conn = self.db.conn();
         let threshold = 0.1;
 
-        let edges_to_prune: Vec<String> = conn.prepare(
-            "SELECT id FROM memory_edges WHERE weight < ?1"
-        )?.query_and_then(params![threshold], |row| {
-            row.get::<_, String>(0)
-        })?.collect::<Result<_, _>>()?;
+        let edges_to_prune: Vec<String> = conn
+            .prepare("SELECT id FROM memory_edges WHERE weight < ?1")?
+            .query_and_then(params![threshold], |row| row.get::<_, String>(0))?
+            .collect::<Result<_, _>>()?;
 
         for edge_id in &edges_to_prune {
-            conn.execute(
-                "DELETE FROM memory_edges WHERE id = ?1",
-                params![edge_id],
-            )?;
+            conn.execute("DELETE FROM memory_edges WHERE id = ?1", params![edge_id])?;
         }
 
         Ok(edges_to_prune.len() as u32)
@@ -362,8 +372,10 @@ mod tests {
         let db = GuardDb::open(dir.path().join("guard.db")).unwrap();
         let mg = MemoryGraph::new(&db);
 
-        mg.add_node(NodeKind::Fact, "test fact", TrustScore::new(0.7)).unwrap();
-        mg.add_node(NodeKind::Rule, "test rule", TrustScore::new(0.5)).unwrap();
+        mg.add_node(NodeKind::Fact, "test fact", TrustScore::new(0.7))
+            .unwrap();
+        mg.add_node(NodeKind::Rule, "test rule", TrustScore::new(0.5))
+            .unwrap();
 
         let pipeline = AnnealingPipeline::new(&db).unwrap();
         let result = pipeline.run_pass().unwrap();
@@ -377,15 +389,24 @@ mod tests {
         let db = GuardDb::open(dir.path().join("guard.db")).unwrap();
 
         let pipeline = AnnealingPipeline::new(&db).unwrap();
-        let request = pipeline.request_action(
-            None,
-            "echo",
-            "hello",
-            2,
-            TrustScore::new(0.7),
-        ).unwrap();
+        let request = pipeline
+            .request_action(None, None, "echo", "hello", 3, TrustScore::new(0.9))
+            .unwrap();
 
         assert_eq!(request.status, ActionStatus::Approved);
+    }
+
+    #[test]
+    fn test_action_request_working_requires_review() {
+        let dir = tempdir().unwrap();
+        let db = GuardDb::open(dir.path().join("guard.db")).unwrap();
+
+        let pipeline = AnnealingPipeline::new(&db).unwrap();
+        let request = pipeline
+            .request_action(None, None, "echo", "hello", 2, TrustScore::new(0.7))
+            .unwrap();
+
+        assert_eq!(request.status, ActionStatus::Pending);
     }
 
     #[test]
@@ -394,13 +415,9 @@ mod tests {
         let db = GuardDb::open(dir.path().join("guard.db")).unwrap();
 
         let pipeline = AnnealingPipeline::new(&db).unwrap();
-        let request = pipeline.request_action(
-            None,
-            "rm",
-            "-rf /tmp/test",
-            0,
-            TrustScore::new(0.1),
-        ).unwrap();
+        let request = pipeline
+            .request_action(None, None, "rm", "-rf /tmp/test", 0, TrustScore::new(0.1))
+            .unwrap();
 
         assert_eq!(request.status, ActionStatus::Pending);
     }
@@ -412,15 +429,20 @@ mod tests {
         let mg = MemoryGraph::new(&db);
         let pipeline = AnnealingPipeline::new(&db).unwrap();
 
-        let node_id = mg.add_node(NodeKind::Fact, "reinforce me", TrustScore::new(0.5)).unwrap();
+        let node_id = mg
+            .add_node(NodeKind::Fact, "reinforce me", TrustScore::new(0.5))
+            .unwrap();
 
-        let request = pipeline.request_action(
-            Some(node_id.clone()),
-            "test_action",
-            "payload",
-            2,
-            TrustScore::new(0.7),
-        ).unwrap();
+        let request = pipeline
+            .request_action(
+                None,
+                Some(node_id.clone()),
+                "test_action",
+                "payload",
+                3,
+                TrustScore::new(0.9),
+            )
+            .unwrap();
 
         let outcome = ActionOutcome {
             id: uuid::Uuid::new_v4().to_string(),
