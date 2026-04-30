@@ -209,7 +209,10 @@ impl fmt::Display for ActionStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActionRequest {
     pub id: String,
+    /// Raw event ID from mirror-log — provenance of the triggering observation
     pub source_event_id: Option<String>,
+    /// Memory node ID from mirror-guard — the derived knowledge authorizing this action
+    pub source_node_id: Option<String>,
     pub action_type: String,
     pub payload: String,
     pub trust_layer: u32,
