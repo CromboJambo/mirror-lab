@@ -40,8 +40,10 @@ impl<'a> RetrievalEngine<'a> {
 
     /// Retrieve all nodes regardless of trust (expensive, use sparingly).
     pub fn retrieve_all(&self, max: usize) -> Result<Vec<MemoryNode>, GuardDbError> {
-        let mut band = RetrievalBand::default();
-        band.max_results = max;
+        let band = RetrievalBand {
+            max_results: max,
+            ..RetrievalBand::default()
+        };
         self.retrieve(&band)
     }
 
@@ -81,12 +83,12 @@ impl<'a> RetrievalEngine<'a> {
         max_results: usize,
     ) -> Result<Vec<MemoryNode>, GuardDbError> {
         let all_results = self.graph.search_nodes(query, max_results * 2)?;
-        all_results
+        let filtered: Vec<_> = all_results
             .into_iter()
             .filter(|n| n.trust_layer >= min_trust)
             .take(max_results)
-            .collect::<Vec<_>>()
-            .into()
+            .collect();
+        Ok(filtered)
     }
 
     /// Retrieve nodes that haven't been touched recently (stale detection).
@@ -99,11 +101,10 @@ impl<'a> RetrievalEngine<'a> {
         let nodes = self.graph.query_band(&band)?;
         let now = chrono::Utc::now().timestamp();
 
-        nodes
+        Ok(nodes
             .into_iter()
             .filter(|n| (now - n.last_touched) > max_age_seconds)
-            .collect::<Vec<_>>()
-            .into()
+            .collect())
     }
 
     /// Get a summary of the memory graph distribution across trust layers.
