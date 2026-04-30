@@ -65,9 +65,7 @@ impl GuardDb {
 
     pub fn load_anneal_config(&self) -> Result<AnnealConfig, GuardDbError> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT key, value FROM anneal_config"
-        )?;
+        let mut stmt = conn.prepare("SELECT key, value FROM anneal_config")?;
 
         let rows = stmt.query_map([], |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
@@ -82,7 +80,8 @@ impl GuardDb {
                     config.reinforce_threshold = value.parse().unwrap_or(config.reinforce_threshold)
                 }
                 "anneal_interval_seconds" => {
-                    config.anneal_interval_seconds = value.parse().unwrap_or(config.anneal_interval_seconds)
+                    config.anneal_interval_seconds =
+                        value.parse().unwrap_or(config.anneal_interval_seconds)
                 }
                 "max_anneal_passes" => {
                     config.max_anneal_passes = value.parse().unwrap_or(config.max_anneal_passes)
@@ -143,11 +142,9 @@ mod tests {
         assert!(db_path.exists());
 
         let conn = db.conn();
-        let count: i64 = conn.query_row(
-            "SELECT count(*) FROM trust_layers",
-            [],
-            |r| r.get(0),
-        ).unwrap();
+        let count: i64 = conn
+            .query_row("SELECT count(*) FROM trust_layers", [], |r| r.get(0))
+            .unwrap();
         assert!(count >= 4);
     }
 
