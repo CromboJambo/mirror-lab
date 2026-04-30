@@ -79,11 +79,11 @@ impl<'a> AnnealingPipeline<'a> {
         // Phase 3: Re-read nodes to check layer transitions
         let upgraded = self.count_layer_transitions(&nodes, true)?;
         let downgraded = self.count_layer_transitions(&nodes, false)?;
-        result.nodes_upgraded = upgraded;
-        result.nodes_downgraded = downgraded;
+        result.nodes_upgraded = upgraded as usize;
+        result.nodes_downgraded = downgraded as usize;
 
         // Phase 4: Prune weak edges
-        result.edges_pruned = self.prune_weak_edges()?;
+        result.edges_pruned = self.prune_weak_edges()? as usize;
 
         // Phase 5: Increment anneal counts
         for node in &nodes {
@@ -116,7 +116,6 @@ impl<'a> AnnealingPipeline<'a> {
             // Early termination: if no changes in a pass, we've converged
             if results.len() > 1 {
                 let last = results.last().unwrap();
-                let prev = results[results.len() - 2].clone();
                 if last.nodes_upgraded == 0
                     && last.nodes_downgraded == 0
                     && last.nodes_decayed == 0
@@ -175,36 +174,38 @@ impl<'a> AnnealingPipeline<'a> {
         &self,
         outcome: &ActionOutcome,
     ) -> Result<(), GuardDbError> {
-        let conn = self.db.conn();
+        // Phase 1: Write outcome and capture source_id (hold lock)
+        let source_id = {
+            let conn = self.db.conn();
 
-        conn.execute(
-            "INSERT INTO action_outcomes (id, action_id, success, exit_code, output_hash, residual, skill_residue, confidence_delta, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, unixepoch())",
-            params![
-                outcome.id,
-                outcome.action_id,
-                outcome.success as i32,
-                outcome.exit_code,
-                &outcome.output_hash,
-                &outcome.residual,
-                &outcome.skill_residue,
-                outcome.confidence_delta,
-            ],
-        )?;
+            conn.execute(
+                "INSERT INTO action_outcomes (id, action_id, success, exit_code, output_hash, residual, skill_residue, confidence_delta, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, unixepoch())",
+                params![
+                    outcome.id,
+                    outcome.action_id,
+                    outcome.success as i32,
+                    outcome.exit_code,
+                    &outcome.output_hash,
+                    &outcome.residual,
+                    &outcome.skill_residue,
+                    outcome.confidence_delta,
+                ],
+            )?;
 
-        // Update the action status
-        conn.execute(
-            "UPDATE action_requests SET status = 'executed', resolved_at = unixepoch() WHERE id = ?1",
-            params![outcome.action_id],
-        )?;
+            conn.execute(
+                "UPDATE action_requests SET status = 'executed', resolved_at = unixepoch() WHERE id = ?1",
+                params![outcome.action_id],
+            )?;
 
-        // Reinforce or decay the source node based on outcome
-        let source_id: Option<String> = conn.query_row(
-            "SELECT source_event_id FROM action_requests WHERE id = ?1",
-            params![outcome.action_id],
-            |r| r.get(0),
-        ).ok().flatten();
+            conn.query_row(
+                "SELECT source_event_id FROM action_requests WHERE id = ?1",
+                params![outcome.action_id],
+                |r| r.get::<_, Option<String>>(0),
+            ).ok().flatten()
+        }; // Lock dropped here
 
+        // Phase 2: Update node confidence (no lock held)
         if let Some(ref node_id) = source_id {
             if outcome.success {
                 let _ = self.trust.reinforce(node_id, outcome.confidence_delta.abs());
@@ -307,7 +308,8 @@ impl<'a> AnnealingPipeline<'a> {
             if let Some(new) = self.graph.get_node(&old.id)? {
                 if upward && new.trust_layer > old.trust_layer {
                     count += 1;
-                } else if !upward && new.trust_layer < old.trust_layer {
+                }
+                if !upward && new.trust_layer < old.trust_layer {
                     count += 1;
                 }
             }
@@ -324,7 +326,7 @@ impl<'a> AnnealingPipeline<'a> {
             "SELECT id FROM memory_edges WHERE weight < ?1"
         )?.query_and_then(params![threshold], |row| {
             row.get::<_, String>(0)
-        })?.collect();
+        })?.collect::<Result<_, _>>()?;
 
         for edge_id in &edges_to_prune {
             conn.execute(
