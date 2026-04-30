@@ -1,4 +1,3 @@
-use chrono::Utc;
 use rusqlite::params;
 use uuid::Uuid;
 
@@ -58,7 +57,7 @@ impl<'a> MemoryGraph<'a> {
             })
         }).ok();
 
-        Ok(node?)
+        Ok(node)
     }
 
     /// Update node content and metadata.
@@ -177,40 +176,42 @@ impl<'a> MemoryGraph<'a> {
         let mut query = String::from(
             "SELECT n.id, n.kind, n.content, n.trust_layer, n.confidence, n.created_at, n.last_touched, n.anneal_count, n.metadata
              FROM memory_nodes n
-             WHERE n.trust_layer >= ?1 AND n.trust_layer <= ?2 AND n.confidence >= ?3"
+             WHERE n.trust_layer >= ? AND n.trust_layer <= ? AND n.confidence >= ?"
         );
-        let mut params_list: Vec<Box<dyn rusqlite::types::ToSql>> = vec![
+        let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = vec![
             Box::new(band.min_trust_layer),
             Box::new(band.max_trust_layer),
             Box::new(band.min_confidence),
         ];
 
         if let Some(ref kinds) = band.kinds {
-            let placeholders: Vec<String> = (0..kinds.len()).map(|i| format!("?{}", i + 3)).collect();
-            query.push_str(&format!(" AND n.kind IN ({})", placeholders.join(", ")));
+            query.push_str(&format!(" AND n.kind IN ({})",
+                (0..kinds.len()).map(|_| "?".to_string()).collect::<Vec<_>>().join(", ")
+            ));
             for kind in kinds {
-                params_list.push(Box::new(format!("{}", kind)));
+                params.push(Box::new(format!("{}", kind)));
             }
         }
 
         query.push_str(&format!(" ORDER BY n.confidence DESC LIMIT {}", band.max_results));
 
         let mut stmt = conn.prepare(&query)?;
-        let params_ref: Vec<&dyn rusqlite::types::ToSql> = params_list.iter().map(|p| p.as_ref()).collect();
-
-        let nodes: Vec<MemoryNode> = stmt.query_map(params_ref, |row| {
-            Ok(MemoryNode {
-                id: row.get(0)?,
-                kind: self.parse_kind(row.get(1)?),
-                content: row.get(2)?,
-                trust_layer: row.get(3)?,
-                confidence: TrustScore::new(row.get(4)?),
-                created_at: row.get(5)?,
-                last_touched: row.get(6)?,
-                anneal_count: row.get(7)?,
-                metadata: row.get(8)?,
-            })
-        })?.collect::<Result<_, _>>()?;
+        let nodes: Vec<MemoryNode> = stmt.query_map(
+            rusqlite::params_from_iter(params.iter().map(|p| p.as_ref())),
+            |row| {
+                Ok(MemoryNode {
+                    id: row.get(0)?,
+                    kind: self.parse_kind(row.get(1)?),
+                    content: row.get(2)?,
+                    trust_layer: row.get(3)?,
+                    confidence: TrustScore::new(row.get(4)?),
+                    created_at: row.get(5)?,
+                    last_touched: row.get(6)?,
+                    anneal_count: row.get(7)?,
+                    metadata: row.get(8)?,
+                })
+            },
+        )?.collect::<Result<_, _>>()?;
 
         Ok(nodes)
     }
