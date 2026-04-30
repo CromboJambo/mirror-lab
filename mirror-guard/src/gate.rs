@@ -1,9 +1,9 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use tracing::{debug, info, warn};
 
-use crate::guard_db::{GuardDb, GuardDbError};
+use crate::guard_db::GuardDb;
+use crate::guard_db::GuardDbError;
 use crate::trust::TrustManager;
-use crate::types::*;
 
 /// Result of a gate check
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -19,19 +19,17 @@ pub enum GateResult {
 /// This is the single point where the system transitions from detection to action.
 /// Detection != authorization: knowing what happened does not grant the right to change what happens.
 pub struct ExecutionGate<'a> {
-    db: &'a GuardDb,
     trust: TrustManager<'a>,
     dry_run: bool,
-    root: PathBuf,
+    _root: PathBuf,
 }
 
 impl<'a> ExecutionGate<'a> {
     pub fn new(db: &'a GuardDb, dry_run: bool, root: impl Into<PathBuf>) -> Self {
         Self {
-            db,
             trust: TrustManager::new(db),
             dry_run,
-            root: root.into(),
+            _root: root.into(),
         }
     }
 
@@ -96,7 +94,7 @@ impl<'a> ExecutionGate<'a> {
         }
 
         // 6. Command risk assessment (from existing guard logic)
-        let risk = self.assess_command_risk(&ctx.command, &ctx.args);
+        let risk = self.assess_command_risk(ctx.command, &ctx.args);
         match risk {
             CommandRisk::High => {
                 return Ok(GateResult::Interrupted {
@@ -126,14 +124,13 @@ impl<'a> ExecutionGate<'a> {
     /// Assess command risk based on name and arguments.
     fn assess_command_risk(&self, command: &str, args: &[String]) -> CommandRisk {
         let basename = command.split('/').next_back().unwrap_or(command);
-        let args_strs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
 
         for risk_cmd in HIGH_RISK_COMMANDS {
             if basename.eq_ignore_ascii_case(risk_cmd) {
                 return CommandRisk::High;
             }
             let full_cmd = format!("{} {}", basename, args.join(" "));
-            if full_cmd.eq_ignore_ascii_case(*risk_cmd) {
+            if full_cmd.eq_ignore_ascii_case(risk_cmd) {
                 return CommandRisk::High;
             }
         }
