@@ -20,6 +20,9 @@ pub enum PiperTtsError {
     #[error("Failed to find voice config file: {0}")]
     MissingVoiceConfig(String),
 
+    #[error("Phonemization failed: {0}")]
+    PhonemizationError(String),
+
     #[error("Serde error: {0}")]
     SerdeError(#[from] serde_json::Error),
 }
