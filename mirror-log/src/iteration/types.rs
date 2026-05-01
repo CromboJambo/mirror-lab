@@ -349,3 +349,59 @@ pub enum IterationError {
 
 /// Result type for iteration operations.
 pub type IterationResult<T> = Result<T, IterationError>;
+
+/// A deterministic unit compiled from high-entropy input.
+///
+/// Each unit represents a structured claim extracted from unstructured thought.
+/// Every unit carries its own doubt: assumptions, failure points, and staleness.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompilationUnit {
+    /// Unique identifier for this compilation unit
+    pub id: String,
+
+    /// Source event ID this unit was compiled from
+    pub source_event_id: String,
+
+    /// The structured claim extracted from noise
+    pub claim: String,
+
+    /// Confidence score (0-100). Low confidence is not an error — it's truth.
+    pub confidence: u8,
+
+    /// What assumptions this unit makes
+    pub assumptions: Vec<String>,
+
+    /// Where this unit might break
+    pub failure_points: Vec<String>,
+
+    /// Seconds since last reinforcement. Increases over time unless re-validated.
+    pub staleness_seconds: u64,
+
+    /// What this unit might have missed from the source material
+    pub missed_signals: Vec<String>,
+
+    /// Creation timestamp (UTC seconds)
+    pub created_at: i64,
+}
+
+impl CompilationUnit {
+    pub fn new(source_event_id: &str, claim: &str, confidence: u8) -> Self {
+        Self {
+            id: uuid::Uuid::new_v4().to_string(),
+            source_event_id: source_event_id.to_string(),
+            claim: claim.to_string(),
+            confidence,
+            assumptions: Vec::new(),
+            failure_points: Vec::new(),
+            staleness_seconds: 0,
+            missed_signals: Vec::new(),
+            created_at: chrono::Utc::now().timestamp(),
+        }
+    }
+
+    /// Check if this unit has decayed below the given confidence threshold.
+    pub fn is_decayed(&self, threshold: u8, decay_rate: f64) -> bool {
+        let decay = (self.staleness_seconds as f64) * decay_rate;
+        (self.confidence as f64) - decay < threshold as f64
+    }
+}
