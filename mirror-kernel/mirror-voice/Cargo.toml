@@ -2,15 +2,15 @@
 members = ["piper-tts"]
 resolver = "2"
 
-[workspace.package]
+[package]
+name = "mirror-voice"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/yourusername/mirror_voice"
 
-[workspace.dependencies]
+[dependencies]
+piper-rs = "0.1.9"
 tray-icon = "0.21.2"
 wl-clipboard-rs = "0.9.2"
-
-[workspace.dev-dependencies]
+rodio = "0.19"
 anyhow = "1.0"
