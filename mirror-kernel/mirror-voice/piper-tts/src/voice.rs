@@ -1,6 +1,7 @@
-use anyhow::Result;
 use ort::session::Session;
+use ort::{inputs, value::TensorRef};
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::path::Path;
 
 use crate::error::PiperTtsError;
@@ -8,8 +9,12 @@ use crate::error::PiperTtsError;
 /// Voice configuration file structure (.onnx.json)
 #[derive(Debug, Deserialize)]
 struct VoiceConfig {
-    model_file: String,
     audio: AudioConfig,
+    espeak: EspeakConfig,
+    inference: InferenceConfig,
+    phoneme_id_map: HashMap<String, Vec<i64>>,
+    #[allow(dead_code)]
+    num_symbols: u32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -17,11 +22,27 @@ struct AudioConfig {
     sample_rate: u32,
 }
 
+#[derive(Debug, Deserialize)]
+struct EspeakConfig {
+    voice: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct InferenceConfig {
+    noise_scale: f32,
+    length_scale: f32,
+    noise_w: f32,
+}
+
 /// PiperVoice represents a loaded neural TTS voice
-#[allow(dead_code)]
 pub struct PiperVoice {
     session: Session,
     sample_rate: u32,
+    phoneme_id_map: HashMap<String, i64>,
+    espeak_voice: String,
+    noise_scale: f32,
+    length_scale: f32,
+    noise_w: f32,
 }
 
 impl PiperVoice {
@@ -37,26 +58,103 @@ impl PiperVoice {
         let config: VoiceConfig =
             serde_json::from_str(&config_content).map_err(PiperTtsError::SerdeError)?;
 
-        // Load ONNX model
-        let model_path = config.model_file.trim_start_matches('/');
-        let session = Session::builder()?.commit_from_file(model_path)?;
+        // Flatten phoneme_id_map from HashMap<String, Vec<i64>> to HashMap<String, i64>
+        let mut phoneme_id_map: HashMap<String, i64> = HashMap::new();
+        for (phoneme, ids) in config.phoneme_id_map {
+            if let Some(&id) = ids.first() {
+                phoneme_id_map.insert(phoneme, id);
+            }
+        }
 
-        let sample_rate = config.audio.sample_rate;
+        // Load ONNX model
+        let model_path = voice_path;
+        let session = Session::builder()?.commit_from_file(model_path)?;
 
         Ok(PiperVoice {
             session,
-            sample_rate,
+            sample_rate: config.audio.sample_rate,
+            phoneme_id_map,
+            espeak_voice: config.espeak.voice,
+            noise_scale: config.inference.noise_scale,
+            length_scale: config.inference.length_scale,
+            noise_w: config.inference.noise_w,
         })
     }
 
-    /// Synthesize text to audio
-    pub fn synthesize(&self, _text: &str) -> Result<Vec<f32>, PiperTtsError> {
-        // TODO: Implement actual inference
-        // This is a placeholder - the actual implementation would involve
-        // running the ONNX model with the text input
+    /// Convert text to phoneme ID sequence
+    fn text_to_phoneme_ids(&self, text: &str) -> Result<Vec<i64>, PiperTtsError> {
+        // Step 1: Text → phonemes via espeak
+        let phonemes = espeak_rs::text_to_phonemes(
+            text,
+            &self.espeak_voice,
+            None,
+            true,
+            false,
+        )
+        .map_err(|e| PiperTtsError::PhonemizationError(e.to_string()))?;
 
-        // For now, return empty audio data
-        Ok(Vec::new())
+        let phoneme_str = phonemes.join("");
+
+        // Step 2: Phoneme string → phoneme IDs
+        let mut ids: Vec<i64> = Vec::new();
+
+        // BOS token (^, id=1)
+        if let Some(&bos_id) = self.phoneme_id_map.get("^") {
+            ids.push(bos_id);
+        }
+
+        for ch in phoneme_str.chars() {
+            if let Some(&id) = self.phoneme_id_map.get(&ch.to_string()) {
+                ids.push(id);
+            }
+        }
+
+        // EOS token ($, id=2)
+        if let Some(&eos_id) = self.phoneme_id_map.get("$") {
+            ids.push(eos_id);
+        }
+
+        Ok(ids)
+    }
+
+    /// Synthesize text to audio
+    pub fn synthesize(&mut self, text: &str) -> Result<Vec<f32>, PiperTtsError> {
+        // Convert text to phoneme IDs
+        let phoneme_ids = self.text_to_phoneme_ids(text)?;
+
+        let seq_len = phoneme_ids.len();
+
+        // Build input tensors
+        // input: int64 [batch_size=1, phonemes]
+        let input_tensor = TensorRef::from_array_view(([1usize, seq_len], &phoneme_ids[..]))
+            .map_err(|e| PiperTtsError::InferenceError(e.to_string()))?;
+
+        // input_lengths: int64 [batch_size=1]
+        let lengths: Vec<i64> = vec![seq_len as i64];
+        let lengths_tensor = TensorRef::from_array_view(([1usize], &lengths[..]))
+            .map_err(|e| PiperTtsError::InferenceError(e.to_string()))?;
+
+        // scales: float [3] — noise_scale, length_scale, noise_w
+        let scales: [f32; 3] = [self.noise_scale, self.length_scale, self.noise_w];
+        let scales_tensor = TensorRef::from_array_view(([3usize], &scales[..]))
+            .map_err(|e| PiperTtsError::InferenceError(e.to_string()))?;
+
+        // Run inference
+        let outputs = self
+            .session
+            .run(inputs![
+                "input" => input_tensor,
+                "input_lengths" => lengths_tensor,
+                "scales" => scales_tensor,
+            ])
+            .map_err(|e| PiperTtsError::InferenceError(e.to_string()))?;
+
+        // Extract output tensor: float [1, 1, 1, audio_samples]
+        let (_, audio_data) = outputs[0]
+            .try_extract_tensor::<f32>()
+            .map_err(|e| PiperTtsError::InferenceError(e.to_string()))?;
+
+        Ok(audio_data.to_vec())
     }
 
     /// Get the sample rate of this voice
