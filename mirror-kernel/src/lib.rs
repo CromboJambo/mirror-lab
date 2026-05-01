@@ -305,5 +305,6 @@ pub mod kernels;
 // Re-export commonly used types and traits
 pub use kernels::ChallengeMirror;
 pub use kernels::CompressMirror;
+pub use kernels::DelusionCompiler;
 pub use kernels::EmpathicMirror;
 pub use kernels::ExpandMirror;

@@ -47,8 +47,8 @@ pub use embedding::{
 // Re-export iteration types and functions
 #[cfg(feature = "iteration")]
 pub use iteration::{
-    CompletionReason, FeedbackQuality, IterationError, IterationFeedback, IterationInsight,
-    IterationPass, IterationStats, IterationStatus, IterationThreshold, PassType,
+    CompilationUnit, CompletionReason, FeedbackQuality, IterationError, IterationFeedback,
+    IterationInsight, IterationPass, IterationStats, IterationStatus, IterationThreshold, PassType,
     get_iteration_passes, get_iteration_status, insert_iteration_pass, update_iteration_status,
 };
 

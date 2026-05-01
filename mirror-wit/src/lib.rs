@@ -58,6 +58,9 @@ pub enum MirrorTag {
 
     /// Network: Can access network resources
     Network,
+
+    /// Compile: Can compile high-entropy input into deterministic, indexable units
+    Compile,
 }
 
 // ============================================================================
