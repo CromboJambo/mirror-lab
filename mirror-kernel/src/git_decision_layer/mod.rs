@@ -46,10 +46,11 @@ impl GitDecisionLayer {
         reason: &str,
         event_ids: &[String],
     ) -> Result<String, GitError> {
+        let sanitized_name = Self::sanitize_filename(kernel_name);
         let filename = format!(
             "decision_{}_{}.json",
             Utc::now().timestamp_millis(),
-            kernel_name
+            sanitized_name
         );
         let relative_path = Path::new("mirror_decisions").join(&filename);
         let file_path = self.decision_dir.join(&filename);
@@ -157,6 +158,25 @@ impl GitDecisionLayer {
 
     pub fn rebase_branch(&self, branch_name: &str) -> Result<(), GitError> {
         run_git(&self.repo_path, ["rebase", branch_name]).map(|_| ())
+    }
+
+    /// Sanitize a string for safe use as a filename component.
+    /// Strips path separators, null bytes, and control characters.
+    fn sanitize_filename(name: &str) -> String {
+        name.chars()
+            .filter(|c| {
+                !c.is_control()
+                    && *c != '/'
+                    && *c != '\\'
+                    && *c != ':'
+                    && *c != '*'
+                    && *c != '?'
+                    && *c != '"'
+                    && *c != '<'
+                    && *c != '>'
+                    && *c != '|'
+            })
+            .collect()
     }
 
     fn format_commit_message(&self, blob: &DecisionBlob) -> String {
