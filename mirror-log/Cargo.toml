@@ -20,7 +20,7 @@ sha2.workspace = true
 rand.workspace = true
 
 # Required for embedding support
-tokenizers = { version = "0.20", optional = true }
+tokenizers = { version = "0.21", optional = true }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

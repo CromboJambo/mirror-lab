@@ -27,8 +27,8 @@ pub struct AppendReceipt {
 fn unix_now_secs() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as i64
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
 }
 
 fn next_timestamp(conn: &Connection) -> Result<i64> {
