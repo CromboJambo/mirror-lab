@@ -33,7 +33,11 @@ impl StagedEvent {
 
     /// Return the event timestamp as a `DateTime<Utc>`.
     pub fn timestamp_utc(&self) -> DateTime<Utc> {
-        Utc.timestamp_opt(self.timestamp, 0).unwrap()
+        match Utc.timestamp_opt(self.timestamp, 0) {
+            chrono::LocalResult::Single(dt) => dt,
+            chrono::LocalResult::Ambiguous(dt, _) => dt,
+            chrono::LocalResult::None => Utc::now(),
+        }
     }
 
     /// Persist this staged event to disk as a JSON file.
