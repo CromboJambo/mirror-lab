@@ -93,8 +93,11 @@ impl BaselineProvider {
 #[cfg(feature = "embedding")]
 impl EmbeddingProvider for BaselineProvider {
     fn embed(&self, text: &str) -> Result<Vec<f32>, EmbeddingError> {
-        self.embed_batch(&[text])
-            .map(|v| v.into_iter().next().unwrap())
+        self.embed_batch(&[text]).and_then(|v| {
+            v.into_iter().next().ok_or(EmbeddingError::ProviderError(
+                "Empty embedding result".into(),
+            ))
+        })
     }
 
     fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, EmbeddingError> {
