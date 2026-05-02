@@ -1,4 +1,4 @@
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::{TimeZone, Utc};
 use rusqlite::{Connection, Result};
 
 #[derive(Debug)]
@@ -14,12 +14,20 @@ pub struct Event {
 
 impl Event {
     pub fn format_time(&self) -> String {
-        let dt: DateTime<Utc> = Utc.timestamp_opt(self.timestamp, 0).unwrap();
+        let dt = match Utc.timestamp_opt(self.timestamp, 0) {
+            chrono::LocalResult::Single(dt) => dt,
+            chrono::LocalResult::Ambiguous(dt, _) => dt,
+            chrono::LocalResult::None => Utc::now(),
+        };
         dt.format("%Y-%m-%d %H:%M:%S UTC").to_string()
     }
 
     pub fn format_ingested_at(&self) -> String {
-        let dt: DateTime<Utc> = Utc.timestamp_opt(self.ingested_at, 0).unwrap();
+        let dt = match Utc.timestamp_opt(self.ingested_at, 0) {
+            chrono::LocalResult::Single(dt) => dt,
+            chrono::LocalResult::Ambiguous(dt, _) => dt,
+            chrono::LocalResult::None => Utc::now(),
+        };
         dt.format("%Y-%m-%d %H:%M:%S UTC").to_string()
     }
 
