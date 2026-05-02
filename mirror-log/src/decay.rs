@@ -103,7 +103,10 @@ pub fn move_to_shadow(conn: &Connection) -> Result<usize> {
     let tx = conn.unchecked_transaction()?;
     let mut moved = 0;
     for (id, score) in scores {
-        let now = UNIX_EPOCH.elapsed().unwrap().as_secs() as i64;
+        let now = UNIX_EPOCH
+            .elapsed()
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
 
         tx.execute(
             "INSERT INTO shadow_state (event_id, decay_score, flagged_at)
