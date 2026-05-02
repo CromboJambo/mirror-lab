@@ -67,8 +67,8 @@ impl CliHistorySource {
             // Store timestamp for deduplication
             let ts = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs() as i64;
+                .map(|d| d.as_secs() as i64)
+                .unwrap_or(0);
 
             dedup.insert(hash, ts);
         }
@@ -81,7 +81,7 @@ impl CliHistorySource {
         let mut batch: Vec<(String, String, String)> = Vec::new();
 
         for (hash, ts) in dedup {
-            let content = Self::get_content_by_hash(&path, ts).unwrap_or_else(|_| String::new());
+            let content = Self::get_content_by_hash(&path, ts).unwrap_or_default();
             if !content.is_empty() {
                 batch.push((hash, content, "cli-history".to_string()));
             }
@@ -141,8 +141,8 @@ impl CliHistorySource {
             let hash = Self::content_hash(trimmed);
             let ts = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs() as i64;
+                .map(|d| d.as_secs() as i64)
+                .unwrap_or(0);
 
             dedup.insert(hash, ts);
         }
@@ -154,7 +154,7 @@ impl CliHistorySource {
         let mut batch: Vec<(String, String, String)> = Vec::new();
 
         for (hash, ts) in dedup {
-            let content = Self::get_content_by_hash(&path, ts).unwrap_or_else(|_| String::new());
+            let content = Self::get_content_by_hash(&path, ts).unwrap_or_default();
             if !content.is_empty() {
                 batch.push((hash, content, "cli-history".to_string()));
             }
@@ -238,7 +238,7 @@ impl CliHistorySource {
         let mut batch: Vec<(String, String, String)> = Vec::new();
 
         for (hash, ts) in dedup {
-            let content = Self::get_content_by_hash(&path, ts).unwrap_or_else(|_| String::new());
+            let content = Self::get_content_by_hash(&path, ts).unwrap_or_default();
             if !content.is_empty() {
                 batch.push((hash, content, "cli-history".to_string()));
             }
@@ -297,7 +297,7 @@ impl CliHistorySource {
         if path.starts_with('~')
             && let Ok(home) = std::env::var("HOME")
         {
-            return PathBuf::from(home).join(path.strip_prefix('~').unwrap());
+            return PathBuf::from(home).join(path.strip_prefix('~').unwrap_or(""));
         }
         PathBuf::from(path)
     }
@@ -306,8 +306,8 @@ impl CliHistorySource {
     fn unix_now_secs() -> i64 {
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as i64
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0)
     }
 }
 
