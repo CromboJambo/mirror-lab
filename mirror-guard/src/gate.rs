@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use tracing::{debug, info, warn};
+use uuid::Uuid;
 
 use crate::guard_db::GuardDb;
 use crate::guard_db::GuardDbError;
@@ -21,6 +22,7 @@ pub enum GateResult {
 pub struct ExecutionGate<'a> {
     trust: TrustManager<'a>,
     dry_run: bool,
+    risk_config: RiskConfig,
     _root: PathBuf,
 }
 
@@ -29,8 +31,14 @@ impl<'a> ExecutionGate<'a> {
         Self {
             trust: TrustManager::new(db),
             dry_run,
+            risk_config: RiskConfig::default(),
             _root: root.into(),
         }
+    }
+
+    pub fn with_risk_config(mut self, risk_config: RiskConfig) -> Self {
+        self.risk_config = risk_config;
+        self
     }
 
     /// Run the full gate check before executing an action.
@@ -129,7 +137,7 @@ impl<'a> ExecutionGate<'a> {
     fn assess_command_risk(&self, command: &str, args: &[String]) -> CommandRisk {
         let basename = command.split('/').next_back().unwrap_or(command);
 
-        for risk_cmd in HIGH_RISK_COMMANDS {
+        for risk_cmd in &self.risk_config.high_risk {
             if basename.eq_ignore_ascii_case(risk_cmd) {
                 return CommandRisk::High;
             }
@@ -139,7 +147,7 @@ impl<'a> ExecutionGate<'a> {
             }
         }
 
-        for risk_cmd in MEDIUM_RISK_COMMANDS {
+        for risk_cmd in &self.risk_config.medium_risk {
             if basename.eq_ignore_ascii_case(risk_cmd) {
                 return CommandRisk::Medium;
             }
@@ -167,6 +175,45 @@ pub enum CommandRisk {
     Medium,
     High,
     Unauthorized,
+}
+
+#[derive(Debug, Clone)]
+pub struct RiskConfig {
+    pub high_risk: Vec<String>,
+    pub medium_risk: Vec<String>,
+    pub provenance_id: String,
+    pub set_at: i64,
+    pub reason: String,
+    pub source: String,
+}
+
+impl Default for RiskConfig {
+    fn default() -> Self {
+        Self {
+            high_risk: HIGH_RISK_COMMANDS.iter().map(|s| s.to_string()).collect(),
+            medium_risk: MEDIUM_RISK_COMMANDS.iter().map(|s| s.to_string()).collect(),
+            provenance_id: Uuid::new_v4().to_string(),
+            set_at: chrono::Utc::now().timestamp(),
+            reason: "default risk thresholds".to_string(),
+            source: "mirror-guard".to_string(),
+        }
+    }
+}
+
+impl RiskConfig {
+    pub fn with_high_risk(mut self, commands: Vec<String>) -> Self {
+        self.high_risk = commands;
+        self.provenance_id = Uuid::new_v4().to_string();
+        self.set_at = chrono::Utc::now().timestamp();
+        self
+    }
+
+    pub fn with_medium_risk(mut self, commands: Vec<String>) -> Self {
+        self.medium_risk = commands;
+        self.provenance_id = Uuid::new_v4().to_string();
+        self.set_at = chrono::Utc::now().timestamp();
+        self
+    }
 }
 
 const HIGH_RISK_COMMANDS: &[&str] = &[

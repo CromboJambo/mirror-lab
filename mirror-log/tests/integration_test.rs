@@ -455,7 +455,8 @@ mod tests {
         )
         .expect("Failed to seed decay state");
 
-        let moved = mirror_log::move_to_shadow(&conn).expect("Failed to shadow events");
+        let config = mirror_log::decay::DecayConfig::default();
+        let moved = mirror_log::move_to_shadow(&conn, &config).expect("Failed to shadow events");
         assert_eq!(moved, 1);
 
         let recent = mirror_log::view::recent(&conn, 10).expect("Failed to load recent events");

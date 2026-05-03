@@ -3,6 +3,7 @@ use crate::ledger::Ledger;
 use crate::reflection::ReflectionEnvelope;
 use std::path::{Path, PathBuf};
 use tokio::sync::mpsc;
+use uuid::Uuid;
 
 /// Result of the execution gate check.
 #[derive(Debug, Clone, PartialEq)]
@@ -21,16 +22,85 @@ pub enum GateResult {
     Interrupted,
 }
 
-/// The execution gate — validates raw input before pipeline execution.
-pub struct ExecutionGate {
-    /// Minimum confidence threshold for automatic execution.
-    threshold: f64,
+/// Confidence heuristic configuration for the daemon gate.
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct ConfidenceConfig {
+    pub length_max: f64,
+    pub content_space_factor: f64,
+    pub content_no_space_factor: f64,
+    pub threshold: f64,
+    pub provenance_id: String,
+    pub set_at: i64,
+    pub reason: String,
+    pub source: String,
 }
 
+impl Default for ConfidenceConfig {
+    fn default() -> Self {
+        Self {
+            length_max: 1000.0,
+            content_space_factor: 0.5,
+            content_no_space_factor: 0.3,
+            threshold: 0.3,
+            provenance_id: Uuid::new_v4().to_string(),
+            set_at: chrono::Utc::now().timestamp(),
+            reason: "default confidence heuristic".to_string(),
+            source: "mirror-daemon".to_string(),
+        }
+    }
+}
+
+#[allow(dead_code)]
+impl ConfidenceConfig {
+    pub fn with_length_max(mut self, max: f64) -> Self {
+        self.length_max = max;
+        self.provenance_id = Uuid::new_v4().to_string();
+        self.set_at = chrono::Utc::now().timestamp();
+        self
+    }
+
+    pub fn with_threshold(mut self, threshold: f64) -> Self {
+        self.threshold = threshold;
+        self.provenance_id = Uuid::new_v4().to_string();
+        self.set_at = chrono::Utc::now().timestamp();
+        self
+    }
+
+    pub fn with_space_factor(mut self, factor: f64) -> Self {
+        self.content_space_factor = factor;
+        self.provenance_id = Uuid::new_v4().to_string();
+        self.set_at = chrono::Utc::now().timestamp();
+        self
+    }
+
+    pub fn with_no_space_factor(mut self, factor: f64) -> Self {
+        self.content_no_space_factor = factor;
+        self.provenance_id = Uuid::new_v4().to_string();
+        self.set_at = chrono::Utc::now().timestamp();
+        self
+    }
+}
+
+/// The execution gate — validates raw input before pipeline execution.
+#[allow(dead_code)]
+pub struct ExecutionGate {
+    /// Confidence heuristic configuration.
+    config: ConfidenceConfig,
+}
+
+#[allow(dead_code)]
 impl ExecutionGate {
     /// Create a new gate with the default threshold.
     pub fn new() -> Self {
-        Self { threshold: 0.3 }
+        Self {
+            config: ConfidenceConfig::default(),
+        }
+    }
+
+    pub fn with_config(mut self, config: ConfidenceConfig) -> Self {
+        self.config = config;
+        self
     }
 
     /// Evaluate the event payload against the gate criteria.
@@ -40,20 +110,21 @@ impl ExecutionGate {
         }
 
         let confidence = self.compute_confidence(event_payload);
-        if confidence >= self.threshold {
+        if confidence >= self.config.threshold {
             GateResult::Validated { confidence }
         } else {
             GateResult::Uncertain { confidence }
         }
     }
 
-    /// Compute confidence from event payload characteristics.
+    /// Compute confidence from event payload characteristics using provenance-tracked heuristic.
     fn compute_confidence(&self, event_payload: &str) -> f64 {
-        let length_factor = (event_payload.len().min(1000) as f64) / 1000.0;
+        let length_factor = (event_payload.len().min(self.config.length_max as usize) as f64)
+            / self.config.length_max;
         let content_factor = if event_payload.contains(' ') {
-            0.5
+            self.config.content_space_factor
         } else {
-            0.3
+            self.config.content_no_space_factor
         };
         (length_factor + content_factor) / 2.0
     }

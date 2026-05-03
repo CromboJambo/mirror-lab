@@ -38,6 +38,9 @@ async-trait = { workspace = true }
 # Annealing and execution gating
 mirror-guard = { workspace = true }
 
+# UUID generation for provenance
+uuid = { workspace = true }
+
 # Transcription (optional — enabled with --features transcription)
 whisper-rs = { version = "0.15", optional = true }
 hound = { version = "3.5", optional = true }

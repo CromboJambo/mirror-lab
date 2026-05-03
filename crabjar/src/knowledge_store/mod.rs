@@ -10,7 +10,55 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
-use crate::state_docs::{AnnotationEntry, AnnotationKind, StateDocsManager};
+use crate::state_docs::{AnnotationEntry, AnnotationKind, AnnotationStatus, StateDocsManager};
+
+#[derive(Debug, Clone)]
+pub struct ConfidenceDefaults {
+    pub note_confidence: f64,
+    pub question_confidence: f64,
+    pub promote_confidence: f64,
+    pub provenance_id: String,
+    pub set_at: u128,
+    pub reason: String,
+    pub source: String,
+}
+
+impl Default for ConfidenceDefaults {
+    fn default() -> Self {
+        Self {
+            note_confidence: 0.80,
+            question_confidence: 0.55,
+            promote_confidence: 0.85,
+            provenance_id: Uuid::new_v4().to_string(),
+            set_at: now_unix_ms(),
+            reason: "default confidence baselines".to_string(),
+            source: "knowledge_store".to_string(),
+        }
+    }
+}
+
+impl ConfidenceDefaults {
+    pub fn with_note_confidence(mut self, value: f64) -> Self {
+        self.note_confidence = value;
+        self.provenance_id = Uuid::new_v4().to_string();
+        self.set_at = now_unix_ms();
+        self
+    }
+
+    pub fn with_question_confidence(mut self, value: f64) -> Self {
+        self.question_confidence = value;
+        self.provenance_id = Uuid::new_v4().to_string();
+        self.set_at = now_unix_ms();
+        self
+    }
+
+    pub fn with_promote_confidence(mut self, value: f64) -> Self {
+        self.promote_confidence = value;
+        self.provenance_id = Uuid::new_v4().to_string();
+        self.set_at = now_unix_ms();
+        self
+    }
+}
 
 /// Helper to produce a standard knowledge-response JSON object
 pub fn knowledge_response(
@@ -73,7 +121,8 @@ impl<'a> KnowledgeBridge<'a> {
             AnnotationKind::Question => KnowledgeKind::Instruction,
         };
 
-        let confidence = annotation_confidence(annotation);
+        let defaults = ConfidenceDefaults::default();
+        let confidence = annotation_confidence(annotation, &defaults);
         let provenance_id = Uuid::new_v4().to_string();
         let mut entry = KnowledgeEntry::new(&annotation.message, kind)
             .meta("source_type", Self::STATE_DOC_SOURCE_TYPE)
@@ -253,12 +302,13 @@ impl<'a> KnowledgeBridge<'a> {
             .map_err(|e| agent_context::Error::Internal(format!("Failed to find event: {}", e)))?;
 
         let provenance_id = Uuid::new_v4().to_string();
+        let defaults = ConfidenceDefaults::default();
         let mut entry = KnowledgeEntry::new(&content, KnowledgeKind::Context);
         entry.source = Source::Agent;
         entry = entry
             .meta("source_type", Self::MIRROR_LOG_SOURCE_TYPE)
             .meta("source_id", event_id)
-            .meta("confidence", 0.85)
+            .meta("confidence", defaults.promote_confidence)
             .meta("derived_at_unix_ms", now_unix_ms())
             .meta("status", "active")
             .meta("provenance_id", provenance_id)
@@ -280,10 +330,10 @@ fn now_unix_ms() -> u128 {
         .unwrap_or(0)
 }
 
-fn annotation_confidence(annotation: &AnnotationEntry) -> f64 {
+fn annotation_confidence(annotation: &AnnotationEntry, defaults: &ConfidenceDefaults) -> f64 {
     let base = match annotation.kind {
-        AnnotationKind::Note => 0.80,
-        AnnotationKind::Question => 0.55,
+        AnnotationKind::Note => defaults.note_confidence,
+        AnnotationKind::Question => defaults.question_confidence,
     };
 
     let message = annotation.message.to_ascii_lowercase();

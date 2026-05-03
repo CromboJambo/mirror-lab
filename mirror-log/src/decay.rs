@@ -1,5 +1,47 @@
 use rusqlite::{Connection, Result, params};
 use std::time::UNIX_EPOCH;
+use uuid::Uuid;
+
+use chrono::Utc;
+
+#[derive(Debug, Clone)]
+pub struct DecayConfig {
+    pub decay_threshold_days: i64,
+    pub access_count_threshold: i64,
+    pub provenance_id: String,
+    pub set_at: i64,
+    pub reason: String,
+    pub source: String,
+}
+
+impl Default for DecayConfig {
+    fn default() -> Self {
+        Self {
+            decay_threshold_days: DECAY_THRESHOLD_DAYS,
+            access_count_threshold: ACCESS_COUNT_THRESHOLD,
+            provenance_id: Uuid::new_v4().to_string(),
+            set_at: Utc::now().timestamp(),
+            reason: "default decay thresholds".to_string(),
+            source: "mirror-log".to_string(),
+        }
+    }
+}
+
+impl DecayConfig {
+    pub fn with_decay_threshold(mut self, days: i64) -> Self {
+        self.decay_threshold_days = days;
+        self.provenance_id = Uuid::new_v4().to_string();
+        self.set_at = Utc::now().timestamp();
+        self
+    }
+
+    pub fn with_access_count_threshold(mut self, count: i64) -> Self {
+        self.access_count_threshold = count;
+        self.provenance_id = Uuid::new_v4().to_string();
+        self.set_at = Utc::now().timestamp();
+        self
+    }
+}
 
 const DECAY_THRESHOLD_DAYS: i64 = 30;
 const ACCESS_COUNT_THRESHOLD: i64 = 10;
@@ -42,7 +84,7 @@ pub fn get_decay_score(conn: &Connection, event_id: &str) -> Result<f64> {
 }
 
 /// Check if an event is flagged for decay (below threshold)
-pub fn is_flagged(conn: &Connection, event_id: &str) -> Result<bool> {
+pub fn is_flagged(conn: &Connection, event_id: &str, config: &DecayConfig) -> Result<bool> {
     let flagged: bool = conn.query_row(
         "SELECT EXISTS(
             SELECT 1 FROM decay
@@ -51,29 +93,33 @@ pub fn is_flagged(conn: &Connection, event_id: &str) -> Result<bool> {
             AND (unixepoch() - last_accessed) > ?3 * 86400
             AND pinned = 0
         )",
-        params![event_id, ACCESS_COUNT_THRESHOLD, DECAY_THRESHOLD_DAYS],
+        params![
+            event_id,
+            config.access_count_threshold,
+            config.decay_threshold_days
+        ],
         |row| row.get(0),
     )?;
     Ok(flagged)
 }
 
 /// Get all events that meet decay criteria
-pub fn get_flagged_events(conn: &Connection) -> Result<Vec<String>> {
+pub fn get_flagged_events(conn: &Connection, config: &DecayConfig) -> Result<Vec<String>> {
     let mut ids = Vec::new();
 
     let mut stmt = conn.prepare(
         "SELECT e.id FROM events e
-         JOIN decay d ON e.id = d.event_id
-         LEFT JOIN shadow_state s ON e.id = s.event_id
-         WHERE d.access_count < ?
-         AND (unixepoch() - d.last_accessed) > ? * 86400
-         AND d.pinned = 0
-         AND s.event_id IS NULL
-         ORDER BY d.last_accessed ASC",
+          JOIN decay d ON e.id = d.event_id
+          LEFT JOIN shadow_state s ON e.id = s.event_id
+          WHERE d.access_count < ?
+          AND (unixepoch() - d.last_accessed) > ? * 86400
+          AND d.pinned = 0
+          AND s.event_id IS NULL
+          ORDER BY d.last_accessed ASC",
     )?;
 
     let rows = stmt.query_map(
-        params![ACCESS_COUNT_THRESHOLD, DECAY_THRESHOLD_DAYS],
+        params![config.access_count_threshold, config.decay_threshold_days],
         |row| row.get(0),
     )?;
 
@@ -85,8 +131,8 @@ pub fn get_flagged_events(conn: &Connection) -> Result<Vec<String>> {
 }
 
 /// Move flagged events to the shadow state so they no longer appear in normal queries.
-pub fn move_to_shadow(conn: &Connection) -> Result<usize> {
-    let flagged_ids = get_flagged_events(conn)?;
+pub fn move_to_shadow(conn: &Connection, config: &DecayConfig) -> Result<usize> {
+    let flagged_ids = get_flagged_events(conn, config)?;
 
     if flagged_ids.is_empty() {
         return Ok(0);
@@ -193,7 +239,7 @@ pub fn restore_from_shadow(conn: &Connection, event_id: &str) -> Result<()> {
 }
 
 /// Get decay statistics
-pub fn get_decay_stats(conn: &Connection) -> Result<DecayStats> {
+pub fn get_decay_stats(conn: &Connection, config: &DecayConfig) -> Result<DecayStats> {
     let total_events: i64 = conn.query_row("SELECT COUNT(*) FROM decay", [], |row| row.get(0))?;
 
     let total_access: i64 =
@@ -212,13 +258,13 @@ pub fn get_decay_stats(conn: &Connection) -> Result<DecayStats> {
 
     let flagged_count: i64 = conn.query_row(
         "SELECT COUNT(*)
-         FROM decay d
-         LEFT JOIN shadow_state s ON d.event_id = s.event_id
-         WHERE d.access_count < ?1
-         AND (unixepoch() - d.last_accessed) > ?2 * 86400
-         AND d.pinned = 0
-         AND s.event_id IS NULL",
-        params![ACCESS_COUNT_THRESHOLD, DECAY_THRESHOLD_DAYS],
+          FROM decay d
+          LEFT JOIN shadow_state s ON d.event_id = s.event_id
+          WHERE d.access_count < ?1
+          AND (unixepoch() - d.last_accessed) > ?2 * 86400
+          AND d.pinned = 0
+          AND s.event_id IS NULL",
+        params![config.access_count_threshold, config.decay_threshold_days],
         |row| row.get(0),
     )?;
 
