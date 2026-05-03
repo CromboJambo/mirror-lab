@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use crabjar_lib::cli::{Cli, CliCommand, StateCommand, WorkspaceCommand};
 use serde_json::json;
 
 mod dotfile_manager;
@@ -10,68 +10,6 @@ use dotfile_manager::{DotfileCommand, DotfileManager};
 use knowledge_store::{KnowledgeBridge, commands::KnowledgeCommand};
 use project_loader::ProjectLoader;
 use state_docs::{AnnotationKind, StateDocsManager};
-
-#[derive(Parser, Debug)]
-#[command(
-    name = "crabjar",
-    about = "CLI for local state-docs management",
-    disable_help_flag = true,
-    disable_help_subcommand = true
-)]
-struct Cli {
-    #[command(subcommand)]
-    command: Option<CliCommand>,
-}
-
-#[derive(Subcommand, Debug, Clone)]
-enum CliCommand {
-    /// Show help as structured JSON
-    Help,
-
-    /// Manage state-docs
-    State {
-        #[command(subcommand)]
-        command: StateCommand,
-    },
-
-    /// Manage knowledge store
-    Knowledge {
-        #[command(subcommand)]
-        command: KnowledgeCommand,
-    },
-
-    /// Manage dotfile promotions
-    Dotfile {
-        #[command(subcommand)]
-        command: DotfileCommand,
-    },
-
-    /// Show workspace configuration
-    Workspace {
-        #[command(subcommand)]
-        command: WorkspaceCommand,
-    },
-}
-
-#[derive(Subcommand, Debug, Clone)]
-enum StateCommand {
-    /// List all state-docs
-    List,
-    /// Show a state-doc with annotations
-    Show { doc: String },
-    /// Add a note annotation
-    Annotate { doc: String, message: String },
-    /// Add a question annotation
-    Question { doc: String, message: String },
-    /// Resolve an annotation
-    Resolve { doc: String, id: String },
-}
-
-#[derive(Subcommand, Debug, Clone)]
-enum WorkspaceCommand {
-    /// Show workspace configuration status
-    Status,
-}
 
 /// Main CLI entry point for CrabJar
 #[tokio::main]

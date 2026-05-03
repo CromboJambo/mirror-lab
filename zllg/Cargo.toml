@@ -26,5 +26,9 @@ ratatui = { workspace = true }
 rusqlite = { workspace = true }
 mirror-log = { path = "../mirror-log" }
 
+[build-dependencies]
+clap = { workspace = true }
+clap_mangen = { workspace = true }
+
 [dev-dependencies]
 tempfile = { workspace = true }

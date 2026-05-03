@@ -48,3 +48,7 @@ path = "src/lib.rs"
 [[bin]]
 name = "mirror-log"
 path = "src/bin/mirror_log.rs"
+
+[build-dependencies]
+clap = { workspace = true }
+clap_mangen = { workspace = true }

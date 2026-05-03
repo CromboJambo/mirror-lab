@@ -66,6 +66,8 @@ pub use decay::{
 };
 pub use orchestrator::PromotionOrchestrator;
 
+pub mod cli;
+
 // Re-export bridge types for kernel integration
 #[cfg(feature = "iteration")]
 pub mod bridge;

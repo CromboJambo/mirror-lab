@@ -15,3 +15,11 @@ pub mod tools;
 pub mod workspace;
 
 pub use error::{Result, ZllgError};
+
+pub use cli::Cli;
+
+use clap::CommandFactory;
+
+pub fn cli() -> clap::Command {
+    Cli::command()
+}
