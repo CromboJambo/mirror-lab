@@ -5,7 +5,7 @@ use axum::{
     routing::post,
 };
 use futures_util::stream;
-use mirror_guard::{ExecutionGate, GateContext, GateResult};
+use mirror_guard::{ActionStatus, ExecutionGate, GateContext};
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
 use std::net::SocketAddr;
@@ -119,6 +119,13 @@ enum AcpResponse {
     /// Report an error.
     Error { error: String },
 }
+
+// ---------------------------------------------------------------------------
+// Gate concierge — provenance boundary enforcement
+// ---------------------------------------------------------------------------
+mod concierge;
+
+
 
 // ---------------------------------------------------------------------------
 // Local SQLite event store (replaces mirror-log dependency)
@@ -479,16 +486,17 @@ async fn execute_tool_call(function_name: &str, args: &[String]) -> String {
             let guard_root = std::env::var("MIRROR_GUARD_ROOT")
                 .unwrap_or_else(|_| "/home/crombo/mirror-lab".to_string());
 
-            // Create guard DB and execution gate
             let guard_db = mirror_guard::GuardDb::open(mirror_guard::GuardDb::from_mirror_path(
-                format!("{}/mirror.db", guard_root),
+                format!("{}/mirror.db", &guard_root),
             ))
             .unwrap_or_else(|_| {
                 warn!("Failed to open guard DB, using in-memory fallback");
                 mirror_guard::GuardDb::open(":memory:").unwrap()
             });
 
-            let gate = ExecutionGate::new(&guard_db, false, guard_root);
+            let gate = ExecutionGate::new(&guard_db, false, &guard_root);
+
+            let mut concierge = concierge::GateConcierge::new();
 
             match gate.check(GateContext {
                 action_type: "tool_call",
@@ -499,28 +507,58 @@ async fn execute_tool_call(function_name: &str, args: &[String]) -> String {
                 has_uncertainty: true,
                 can_interrupt: true,
             }) {
-                Ok(GateResult::Proceed) => {
-                    info!(
-                        "Security check passed: {} with args {:?}",
-                        tool, command_args
-                    );
-                }
-                Ok(GateResult::Pending) => {
-                    warn!(
-                        "Security check pending review: {} with args {:?}",
-                        tool, command_args
-                    );
-                }
-                Ok(GateResult::Interrupted { ref reason }) => {
-                    error!(
-                        "Security check interrupted: {} with args {:?} — {}",
-                        tool, command_args, reason
-                    );
-                    return format!("Security interrupted: {} — {}", tool, reason);
-                }
-                Ok(GateResult::DryRun) => {
-                    info!("Dry-run mode, skipping execution");
-                    return "Dry-run: would execute".to_string();
+                Ok(result) => {
+                    let (status, pending_entry, interrupted_entry) =
+                        concierge.enforce(result, "tool_call", tool, command_args, 2, 0.5);
+
+                    match status {
+                        ActionStatus::Approved => {
+                            info!(
+                                "Gate concierge: Proceed — {} with args {:?}",
+                                tool, command_args
+                            );
+                        }
+                        ActionStatus::Pending => {
+                            if let Some(ref entry) = pending_entry {
+                                info!(
+                                    gate_result_id = %entry.gate_result_id,
+                                    pending_id = %entry.id,
+                                    "Gate concierge: Pending → PendingQueue — queued for review"
+                                );
+                            }
+                            return format!(
+                                "Pending: queued for review (pending_id: {})",
+                                pending_entry
+                                    .as_ref()
+                                    .map(|e| e.id.clone())
+                                    .unwrap_or_default()
+                            );
+                        }
+                        ActionStatus::Denied => {
+                            if let Some(ref entry) = interrupted_entry {
+                                info!(
+                                    gate_result_id = %entry.gate_result_id,
+                                    interrupted_id = %entry.id,
+                                    reason = %entry.reason,
+                                    "Gate concierge: Interrupted → InterruptedLog"
+                                );
+                            }
+                            return format!(
+                                "Interrupted: {} (interrupted_id: {})",
+                                interrupted_entry
+                                    .as_ref()
+                                    .map(|e| e.reason.clone())
+                                    .unwrap_or_default(),
+                                interrupted_entry
+                                    .as_ref()
+                                    .map(|e| e.id.clone())
+                                    .unwrap_or_default()
+                            );
+                        }
+                        ActionStatus::Executed | ActionStatus::Interrupted => {
+                            return "Status not handled by concierge".to_string();
+                        }
+                    }
                 }
                 Err(e) => {
                     error!("Security gate error: {}", e);
