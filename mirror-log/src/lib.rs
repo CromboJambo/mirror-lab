@@ -2,6 +2,7 @@ pub mod attention;
 pub mod chunk;
 pub mod db;
 pub mod decay;
+pub mod distillation;
 pub mod embedding;
 pub mod export;
 pub mod infer;
@@ -63,6 +64,12 @@ pub use decay::{
     DecayStats, ShadowEvent, get_decay_score, get_decay_stats, get_flagged_events,
     get_shadow_events, init_decay_tables, is_flagged, move_to_shadow, pin_event,
     restore_from_shadow, track_access, unpin_event,
+};
+
+// Re-export distillation types and functions
+pub use distillation::{
+    DistillationConfig, DistillationResult, checkpoint, distill, entropy_prune,
+    extract_contradictions, periodic_trigger, re_index,
 };
 pub use orchestrator::PromotionOrchestrator;
 

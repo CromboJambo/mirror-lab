@@ -52,3 +52,6 @@ path = "src/bin/mirror_log.rs"
 [build-dependencies]
 clap = { workspace = true }
 clap_mangen = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
