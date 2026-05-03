@@ -64,10 +64,11 @@ pub struct DistillationResult {
 }
 
 /// Entropy pruning: remove events from shadow_state whose decay score falls below the threshold.
-pub fn entropy_prune(conn: &Connection, config: &DistillationConfig) -> Result<usize, rusqlite::Error> {
-    let mut stmt = conn.prepare(
-        "SELECT event_id FROM shadow_state WHERE decay_score <= ?1",
-    )?;
+pub fn entropy_prune(
+    conn: &Connection,
+    config: &DistillationConfig,
+) -> Result<usize, rusqlite::Error> {
+    let mut stmt = conn.prepare("SELECT event_id FROM shadow_state WHERE decay_score <= ?1")?;
 
     let rows = stmt.query_map(params![config.entropy_prune_threshold], |row| {
         Ok(row.get::<_, String>(0))
@@ -87,18 +88,9 @@ pub fn entropy_prune(conn: &Connection, config: &DistillationConfig) -> Result<u
     let tx = conn.unchecked_transaction()?;
 
     for id in ids {
-        tx.execute(
-            "DELETE FROM shadow_state WHERE event_id = ?1",
-            params![id],
-        )?;
-        tx.execute(
-            "DELETE FROM decay WHERE event_id = ?1",
-            params![id],
-        )?;
-        tx.execute(
-            "DELETE FROM event_tags WHERE event_id = ?1",
-            params![id],
-        )?;
+        tx.execute("DELETE FROM shadow_state WHERE event_id = ?1", params![id])?;
+        tx.execute("DELETE FROM decay WHERE event_id = ?1", params![id])?;
+        tx.execute("DELETE FROM event_tags WHERE event_id = ?1", params![id])?;
         tx.execute(
             "DELETE FROM event_links WHERE from_event_id = ?1 OR to_event_id = ?1",
             params![id],
@@ -183,10 +175,15 @@ pub fn re_index(conn: &Connection) -> Result<(), rusqlite::Error> {
 }
 
 /// Full distillation: entropy pruning + contradiction extraction + checkpoint + re-index.
-pub fn distill(conn: &Connection, distillation_config: &DistillationConfig) -> Result<DistillationResult, rusqlite::Error> {
+pub fn distill(
+    conn: &Connection,
+    distillation_config: &DistillationConfig,
+) -> Result<DistillationResult, rusqlite::Error> {
     let pruned = entropy_prune(conn, distillation_config)?;
     let contradictions = extract_contradictions(conn, distillation_config.contradiction_max_depth)?;
-    let shadowed: i64 = conn.query_row("SELECT COUNT(*) FROM shadow_state", [], |row| row.get(0)).unwrap_or(0);
+    let shadowed: i64 = conn
+        .query_row("SELECT COUNT(*) FROM shadow_state", [], |row| row.get(0))
+        .unwrap_or(0);
 
     let checkpoint_id = checkpoint(conn)?;
 
@@ -364,16 +361,15 @@ mod tests {
                 SELECT * FROM events WHERE NOT EXISTS (
                     SELECT 1 FROM shadow_state s WHERE s.event_id = events.id
                 );",
-        ).unwrap();
+        )
+        .unwrap();
 
         let checkpoint_id = checkpoint(&conn).unwrap();
         assert!(checkpoint_id.len() > 0);
 
-        let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM checkpoints",
-            [],
-            |row| row.get(0),
-        ).unwrap();
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM checkpoints", [], |row| row.get(0))
+            .unwrap();
         assert_eq!(count, 1);
     }
 
