@@ -1,8 +1,9 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
+use uuid::Uuid;
 
-use chrono::Datelike;
+use chrono::{Datelike, Utc};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -32,6 +33,7 @@ pub struct SessionData {
     pub task_category: String,
     pub project: Option<String>,
     pub message_id: Option<String>,
+    pub provenance: ProvenanceEntry,
 }
 
 #[derive(Debug)]
@@ -39,11 +41,21 @@ pub struct ProviderRegistry {
     providers: Vec<Provider>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProvenanceEntry {
+    pub provenance_id: String,
+    pub provider_id: String,
+    pub data_path: String,
+    pub format: String,
+    pub ingestion_timestamp: i64,
+}
+
 #[derive(Debug, Clone)]
 pub struct Provider {
     pub name: String,
     pub data_path: std::path::PathBuf,
     pub format: DataFormat,
+    pub provenance: ProvenanceEntry,
 }
 
 #[derive(Debug, Clone)]
@@ -73,8 +85,15 @@ impl ProviderRegistry {
         if claude_path.exists() {
             providers.push(Provider {
                 name: "claude_code".to_string(),
-                data_path: claude_path,
+                data_path: claude_path.clone(),
                 format: DataFormat::Jsonl,
+                provenance: ProvenanceEntry {
+                    provenance_id: Uuid::new_v4().to_string(),
+                    provider_id: "claude_code".to_string(),
+                    data_path: claude_path.to_string_lossy().to_string(),
+                    format: "jsonl".to_string(),
+                    ingestion_timestamp: Utc::now().timestamp(),
+                },
             });
         }
 
@@ -84,8 +103,15 @@ impl ProviderRegistry {
         if claude_desktop_path.exists() {
             providers.push(Provider {
                 name: "claude_desktop".to_string(),
-                data_path: claude_desktop_path,
+                data_path: claude_desktop_path.clone(),
                 format: DataFormat::Jsonl,
+                provenance: ProvenanceEntry {
+                    provenance_id: Uuid::new_v4().to_string(),
+                    provider_id: "claude_desktop".to_string(),
+                    data_path: claude_desktop_path.to_string_lossy().to_string(),
+                    format: "jsonl".to_string(),
+                    ingestion_timestamp: Utc::now().timestamp(),
+                },
             });
         }
 
@@ -94,8 +120,15 @@ impl ProviderRegistry {
         if codex_path.exists() {
             providers.push(Provider {
                 name: "codex".to_string(),
-                data_path: codex_path,
+                data_path: codex_path.clone(),
                 format: DataFormat::Jsonl,
+                provenance: ProvenanceEntry {
+                    provenance_id: Uuid::new_v4().to_string(),
+                    provider_id: "codex".to_string(),
+                    data_path: codex_path.to_string_lossy().to_string(),
+                    format: "jsonl".to_string(),
+                    ingestion_timestamp: Utc::now().timestamp(),
+                },
             });
         }
 
@@ -105,8 +138,15 @@ impl ProviderRegistry {
         if cursor_path.exists() {
             providers.push(Provider {
                 name: "cursor".to_string(),
-                data_path: cursor_path,
+                data_path: cursor_path.clone(),
                 format: DataFormat::Sqlite,
+                provenance: ProvenanceEntry {
+                    provenance_id: Uuid::new_v4().to_string(),
+                    provider_id: "cursor".to_string(),
+                    data_path: cursor_path.to_string_lossy().to_string(),
+                    format: "sqlite".to_string(),
+                    ingestion_timestamp: Utc::now().timestamp(),
+                },
             });
         }
 
@@ -115,8 +155,15 @@ impl ProviderRegistry {
         if opencode_path.exists() {
             providers.push(Provider {
                 name: "opencode".to_string(),
-                data_path: opencode_path,
+                data_path: opencode_path.clone(),
                 format: DataFormat::Sqlite,
+                provenance: ProvenanceEntry {
+                    provenance_id: Uuid::new_v4().to_string(),
+                    provider_id: "opencode".to_string(),
+                    data_path: opencode_path.to_string_lossy().to_string(),
+                    format: "sqlite".to_string(),
+                    ingestion_timestamp: Utc::now().timestamp(),
+                },
             });
         }
 
@@ -125,8 +172,15 @@ impl ProviderRegistry {
         if pi_path.exists() {
             providers.push(Provider {
                 name: "pi".to_string(),
-                data_path: pi_path,
+                data_path: pi_path.clone(),
                 format: DataFormat::Jsonl,
+                provenance: ProvenanceEntry {
+                    provenance_id: Uuid::new_v4().to_string(),
+                    provider_id: "pi".to_string(),
+                    data_path: pi_path.to_string_lossy().to_string(),
+                    format: "jsonl".to_string(),
+                    ingestion_timestamp: Utc::now().timestamp(),
+                },
             });
         }
 
@@ -135,8 +189,15 @@ impl ProviderRegistry {
         if omp_path.exists() {
             providers.push(Provider {
                 name: "omp".to_string(),
-                data_path: omp_path,
+                data_path: omp_path.clone(),
                 format: DataFormat::Jsonl,
+                provenance: ProvenanceEntry {
+                    provenance_id: Uuid::new_v4().to_string(),
+                    provider_id: "omp".to_string(),
+                    data_path: omp_path.to_string_lossy().to_string(),
+                    format: "jsonl".to_string(),
+                    ingestion_timestamp: Utc::now().timestamp(),
+                },
             });
         }
 
@@ -145,8 +206,15 @@ impl ProviderRegistry {
         if copilot_path.exists() {
             providers.push(Provider {
                 name: "copilot".to_string(),
-                data_path: copilot_path,
+                data_path: copilot_path.clone(),
                 format: DataFormat::Jsonl,
+                provenance: ProvenanceEntry {
+                    provenance_id: Uuid::new_v4().to_string(),
+                    provider_id: "copilot".to_string(),
+                    data_path: copilot_path.to_string_lossy().to_string(),
+                    format: "jsonl".to_string(),
+                    ingestion_timestamp: Utc::now().timestamp(),
+                },
             });
         }
 
@@ -159,11 +227,11 @@ impl ProviderRegistry {
         for provider in &self.providers {
             match provider.format {
                 DataFormat::Jsonl => {
-                    let jsonl_sessions = read_jsonl(&provider.data_path)?;
+                    let jsonl_sessions = read_jsonl(&provider.data_path, &provider.provenance)?;
                     sessions.extend(jsonl_sessions);
                 }
                 DataFormat::Sqlite => {
-                    let sqlite_sessions = read_sqlite(&provider.data_path)?;
+                    let sqlite_sessions = read_sqlite(&provider.data_path, &provider.provenance)?;
                     sessions.extend(sqlite_sessions);
                 }
             }
@@ -223,7 +291,10 @@ impl ProviderRegistry {
     }
 }
 
-fn read_jsonl(path: &std::path::Path) -> Result<Vec<SessionData>, Error> {
+fn read_jsonl(
+    path: &std::path::Path,
+    provenance: &ProvenanceEntry,
+) -> Result<Vec<SessionData>, Error> {
     let content = std::fs::read(path)?;
 
     if content.len() > 128_000_000 {
@@ -266,11 +337,15 @@ fn read_jsonl(path: &std::path::Path) -> Result<Vec<SessionData>, Error> {
                 .get("message_id")
                 .and_then(|m| m.as_str())
                 .map(String::from),
+            provenance: provenance.clone(),
         })
         .collect())
 }
 
-fn read_sqlite(path: &std::path::Path) -> Result<Vec<SessionData>, Error> {
+fn read_sqlite(
+    path: &std::path::Path,
+    provenance: &ProvenanceEntry,
+) -> Result<Vec<SessionData>, Error> {
     let conn = rusqlite::Connection::open(path)?;
     let mut stmt = conn.prepare("SELECT provider, date, input_tokens, output_tokens, model, project, message_id FROM sessions")?;
 
@@ -286,6 +361,7 @@ fn read_sqlite(path: &std::path::Path) -> Result<Vec<SessionData>, Error> {
             task_category: "".to_string(),
             project: row.get::<usize, String>(5).ok(),
             message_id: row.get::<usize, String>(6).ok(),
+            provenance: provenance.clone(),
         })
     })?;
 

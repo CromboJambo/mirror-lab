@@ -1,4 +1,4 @@
-use codeburn_provider::SessionData;
+use codeburn_provider::{ProvenanceEntry, SessionData};
 use serde::Serialize;
 use std::fmt;
 use thiserror::Error;
@@ -136,6 +136,13 @@ impl TaskClassifier {
                 task_category: category.to_string(),
                 project: session.project.clone(),
                 message_id: session.message_id.clone(),
+                provenance: ProvenanceEntry {
+                    provenance_id: session.provenance.provenance_id.clone(),
+                    provider_id: "codeburn-classifier".to_string(),
+                    data_path: session.provenance.data_path.clone(),
+                    format: "classified".to_string(),
+                    ingestion_timestamp: chrono::Utc::now().timestamp(),
+                },
             });
         }
 

@@ -8,6 +8,7 @@ use rusqlite::Connection;
 use serde_json::json;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
+use uuid::Uuid;
 
 use crate::state_docs::{AnnotationEntry, AnnotationKind, StateDocsManager};
 
@@ -73,6 +74,7 @@ impl<'a> KnowledgeBridge<'a> {
         };
 
         let confidence = annotation_confidence(annotation);
+        let provenance_id = Uuid::new_v4().to_string();
         let mut entry = KnowledgeEntry::new(&annotation.message, kind)
             .meta("source_type", Self::STATE_DOC_SOURCE_TYPE)
             .meta("source_id", &annotation.id)
@@ -83,7 +85,10 @@ impl<'a> KnowledgeBridge<'a> {
             )
             .meta("confidence", confidence)
             .meta("derived_at_unix_ms", now_unix_ms())
-            .meta("status", "active");
+            .meta("status", "active")
+            .meta("provenance_id", provenance_id)
+            .meta("provenance_source", Self::STATE_DOC_SOURCE_TYPE)
+            .meta("provenance_set_at_unix_ms", now_unix_ms());
         entry.source = Source::Agent;
         entry.weight = confidence;
         entry.tags = std::iter::once("state-doc".to_string())
@@ -218,6 +223,19 @@ impl<'a> KnowledgeBridge<'a> {
         )
     }
 
+    /// Deactivates all knowledge entries by provenance_id across all provenance sources.
+    pub fn deactivate_by_provenance_id(
+        &self,
+        provenance_id: &str,
+        reason: Option<&str>,
+    ) -> Result<usize, agent_context::Error> {
+        self.knowledge_store.deactivate_by_provenance_id(
+            provenance_id,
+            Source::Agent,
+            reason,
+        )
+    }
+
     /// Promote a raw event from mirror-log to a knowledge entry
     pub fn promote_event(&self, event_id: i64) -> Result<String, agent_context::Error> {
         let conn = self.mirror_log_conn.as_ref().ok_or_else(|| {
@@ -234,6 +252,7 @@ impl<'a> KnowledgeBridge<'a> {
             )
             .map_err(|e| agent_context::Error::Internal(format!("Failed to find event: {}", e)))?;
 
+        let provenance_id = Uuid::new_v4().to_string();
         let mut entry = KnowledgeEntry::new(&content, KnowledgeKind::Context);
         entry.source = Source::Agent;
         entry = entry
@@ -241,7 +260,10 @@ impl<'a> KnowledgeBridge<'a> {
             .meta("source_id", event_id)
             .meta("confidence", 0.85)
             .meta("derived_at_unix_ms", now_unix_ms())
-            .meta("status", "active");
+            .meta("status", "active")
+            .meta("provenance_id", provenance_id)
+            .meta("provenance_source", Self::MIRROR_LOG_SOURCE_TYPE)
+            .meta("provenance_set_at_unix_ms", now_unix_ms());
         if let Some(m) = meta {
             entry = entry.meta("event-meta", json!(m));
         }

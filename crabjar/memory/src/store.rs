@@ -137,10 +137,10 @@ impl Store {
     ) -> Result<usize> {
         let affected = self.conn.execute(
             "UPDATE knowledge
-             SET active = 0
-             WHERE active = 1
-               AND json_extract(meta, '$.source_type') = ?1
-               AND json_extract(meta, '$.source_id') = ?2",
+              SET active = 0
+              WHERE active = 1
+                AND json_extract(meta, '$.source_type') = ?1
+                AND json_extract(meta, '$.source_id') = ?2",
             params![source_type, source_id],
         )?;
 
@@ -149,6 +149,32 @@ impl Store {
                 "reason": reason,
                 "source_type": source_type,
                 "source_id": source_id,
+            });
+            self.log_event("deactivate", None, Some(payload), &format!("{:?}", source))?;
+        }
+
+        Ok(affected)
+    }
+
+    /// Deactivates all active knowledge rows by provenance_id across all provenance sources.
+    pub fn deactivate_by_provenance_id(
+        &self,
+        provenance_id: &str,
+        source: Source,
+        reason: Option<&str>,
+    ) -> Result<usize> {
+        let affected = self.conn.execute(
+            "UPDATE knowledge
+              SET active = 0
+              WHERE active = 1
+                AND json_extract(meta, '$.provenance_id') = ?1",
+            params![provenance_id],
+        )?;
+
+        if affected > 0 {
+            let payload = serde_json::json!({
+                "reason": reason,
+                "provenance_id": provenance_id,
             });
             self.log_event("deactivate", None, Some(payload), &format!("{:?}", source))?;
         }
