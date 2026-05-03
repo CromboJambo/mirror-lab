@@ -1,7 +1,7 @@
 # project_map.md
 
-> Generated: Mon Apr 27 2026
-> Source: Cargo.toml, README.md, AGENTS.md, filesystem scan
+> Generated: May 03 2026
+> Source: Cargo.toml (root + all members), README.md, AGENTS.md, filesystem scan, mirror-guard source
 > Purpose: Structural alignment reference for agent navigation
 
 ---
@@ -18,41 +18,53 @@ mirror-lab is a Rust workspace for a personal knowledge-management system. Inges
 
 ```
 mirror-lab/
-├── Cargo.toml               # Workspace root — shared deps and release profiles
+├── Cargo.toml               # Workspace root — 18 members, shared deps, release profiles
 ├── Cargo.lock               # Locked dependency graph (single monorepo lock)
-├── LICENSE                  # AGPL-3.0-or-later (single monorepo license)
+├── LICENSE                  # MIT OR Apache-2.0 (workspace-level)
 ├── AGENTS.md               # Repository guidelines and architectural constraints
 ├── README.md               # Project overview and integration roadmap
-├── mirror-daemon/           # File-watching daemon; tracks filesystem events
-├── mirror-kernel/           # Core decision logic and SQLite persistence layer
+├── mirror.db                # Primary append-only SQLite event log
+│
+│  Core mirror-* crates
+├── mirror-log/              # Append-only event log, chunking, embeddings (v0.1.9, AGPL-3.0)
+├── mirror-kernel/           # Decision logic, SQLite persistence, WIT interface consumer
 │   └── mirror-voice/        # TTS interface (piper-tts sub-workspace)
-├── mirror-log/              # Human ingress — append-only event log, chunking, embeddings
+├── mirror-daemon/           # File watcher + pipeline execution (Action Layer, Gated)
+├── mirror-guard/            # Trust layers, annealing, execution gate (authorization layer)
 ├── mirror-logger/           # Structured logging engine and entry management
 ├── mirror-query/            # Local AI query CLI (decompression layer over mirror-log)
-├── mirror-wit/              # WIT interface definitions and proc-macro support
-│   └── macro/               # Companion proc-macro crate
-├── crabjar/                # Agent ingress — scratchpad, state-docs, execution engine
-├── a-hole/                 # Egress — crab-cli and crab_tui data export
-├── zllg/                   # Standalone — multiplexing TUI IDE framework (ratatui + Zellij)
-├── staging/                # Ephemeral staging directory for single JSON artifact
-├── state-docs/             # State-docs Markdown files for project documentation
-└── target/                 # Build artifacts directory
+├── mirror-wit/              # WIT interface definitions + proc-macro companion
+│   └── macro/               # Proc-macro crate for WIT codegen
+├── mirror-ledger/           # Ledger artifacts, reflections, work directory (non-crate)
+│
+│  Supporting crates
+├── zllg/                    # Zellij IDE orchestration layer (AGPL-3.0)
+│
+│  Crabjar — agent scratchpad
+├── crabjar/                 # Observer layer — state-docs, overlays, knowledge store
+│   ├── orchestrator/        # ACP-compliant orchestrator (consumes mirror-guard)
+│   └── src/                 # codeburn crates, crabjar-config, knowledge_store, state_docs
+│
+├── staging/                 # Ephemeral JSON artifacts (1 staged artifact)
+├── pipelines/               # Empty — future pipeline definitions
+└── state-docs/              # Durable Markdown state documentation
 ```
 
 ### 2.2 Core Components
 
-| Component | Role | Status |
-|---|---|---|
-| mirror-daemon | File watcher + pipeline execution | Gated action |
-| mirror-kernel | Decision records, kernel dispatch | No action |
-| mirror-voice | TTS interface (piper-tts) | No action |
-| mirror-log | Human ingress — append-only event log | No action |
-| mirror-logger | Structured logging engine | No action |
-| mirror-query | Local AI query CLI | No action |
-| mirror-wit | WIT interface + proc-macro | No action |
-| crabjar | Agent ingress — scratchpad, state-docs, execution | Gated |
-| a-hole | Egress — crab-cli/tui data export | No action |
-| zllg | Standalone — multiplexing TUI IDE framework | No action |
+| Component | Role | Layer | Status |
+| :--- | :--- | :--- | :--- |
+| `mirror-log` | Append-only event log, chunking, embeddings | Detection (Read-Only) | Core, v0.1.9 |
+| `mirror-guard` | Trust layers, annealing, execution gate | Authorization (Separate DB) | Core |
+| `mirror-kernel` | Decision records, kernel dispatch | Decision (No Action) | Core |
+| `mirror-daemon` | File watcher + pipeline execution | Action (Gated) | Core |
+| `mirror-query` | Local AI query CLI | Query | Core |
+| `mirror-logger` | Structured logging engine | Logging | Core |
+| `mirror-wit` | WIT interface + proc-macro | Interface | Core |
+| `zllg` | Zellij IDE orchestration | Tooling | Active |
+| `crabjar` | Agent scratchpad, state-docs, overlays | Observer | Active |
+| `crabjar/orchestrator` | ACP orchestrator with mirror-guard | Orchestrator | Active |
+| `crabjar/src/codeburn-*` | Codeburn pipeline crates (5 crates) | Experimental | Active |
 
 ### 2.3 Workspace Members
 
@@ -65,7 +77,7 @@ Declared in Cargo.toml `[workspace.members]`:
 - mirror-query
 - mirror-log
 - crabjar/orchestrator
-- crabjar/mirror-guard
+- mirror-guard
 - crabjar/src/codeburn
 - crabjar/src/codeburn-config
 - crabjar/src/codeburn-provider
@@ -76,6 +88,7 @@ Declared in Cargo.toml `[workspace.members]`:
 ### 2.4 Shared Dependencies
 
 Declared in Cargo.toml `[workspace.dependencies]`:
+- rustls-webpki (0.103.13 — RUSTSEC-2026 fix)
 - serde (1.0, derive)
 - serde_json (1.0)
 - chrono (0.4, serde)
@@ -85,8 +98,8 @@ Declared in Cargo.toml `[workspace.dependencies]`:
 - sha2 (0.10)
 - hex (0.4)
 - crossterm (0.28)
-- ratatui (0.29)
-- rand (0.8)
+- rand (0.9)
+- ratatui (0.30)
 - clap (4.5, derive)
 - notify (6.1)
 - rusqlite (0.32, bundled)
@@ -99,6 +112,7 @@ Declared in Cargo.toml `[workspace.dependencies]`:
 - tokio (1.35, full)
 - reqwest (0.12)
 - ignore (0.4)
+- path-absolutize (3.1)
 
 ### 2.5 Release Profile
 
@@ -253,17 +267,19 @@ archive/ excluded from build.
 
 ### Last Audit
 
-2026-04-27 — monorepo structural drift resolved. Single `Cargo.lock` and `LICENSE` enforced. Standalone repo artifacts cleaned.
+2026-05-03 — workspace consolidation updated. `a-hole` directory removed from worktree. `mirror-guard` status updated from NEW to Core. Workspace members and deps aligned to root Cargo.toml.
 
 ### Known Items
 
 - `mirror.db` files at root, `mirror-kernel/`, `mirror-log/` — runtime SQLite databases, `.gitignore`d
 - Single Git repo — all nested `.git/` removed (2026-04-26). Each crate independently buildable, shareable, forkable
 - Single `Cargo.lock` at workspace root — crate-level locks removed (2026-04-27)
-- Single `LICENSE` (AGPL-3.0-or-later) at workspace root — crate-level licenses removed (2026-04-27)
+- Single `LICENSE` (MIT OR Apache-2.0) at workspace root — crate-level licenses removed (2026-04-27)
 - `crabjar/reference_materials/` — excluded from Git (cloned reference repos, not authored code)
-- `zllg/` — WIP standalone crate; confirmed workspace member, documented as multiplexing TUI IDE framework
-- `js-code-sandbox/`, `rag-v1/`, `archive/legacy/` — intentionally removed during monorepo refactor (2026-04-27)
+- `zllg/` — confirmed workspace member, documented as multiplexing TUI IDE framework
+- `a-hole/`, `js-code-sandbox/`, `rag-v1/`, `archive/legacy/` — intentionally removed from worktree
+- `pipelines/` — empty, reserved for future pipeline definitions
+- `mirror-ledger/` — non-crate artifact store: artifacts/, reflections/, work/, ledger.jsonl
 
 ---
 

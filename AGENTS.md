@@ -19,9 +19,12 @@ mirror-lab/
 ├── mirror-query/            # Local AI query CLI (decompression layer over mirror-log)
 ├── mirror-wit/              # WIT interface definitions and proc-macro support
 │   └── macro/               # Companion proc-macro crate
-├── a-hole/                 # Data egress crate — crab-cli and crab_tui (unwired)
+├── mirror-guard/            # Trust layers, annealing, execution gate (authorization layer)
+├── mirror-ledger/           # Ledger artifacts, reflections, work directory (non-crate)
 ├── staging/                # Ephemeral staging directory for single JSON artifacts
+├── pipelines/               # Future pipeline definitions (currently empty)
 ├── state-docs/             # State-docs Markdown files for project documentation
+├── zllg/                   # Zellij IDE orchestration layer
 └── crabjar/                # Agent scratchpad — experimental crates and knowledge store
 ```
 
@@ -91,7 +94,7 @@ Simplify event appending and cleanup log.rs
 The project is in a consolidation phase, merging experimental crates into the `mirror-*` core ecosystem.
 
 - **Phase 1 – Standardization:** align shared dependencies at the workspace root; enforce unified error-handling patterns; ensure CI passes across all members.
-- **Phase 2 – Feature Integration:** move `ingress` logic into `mirror-daemon`; integrate clipboard-watching into the daemon; converge CLI tooling into `mirror-query`.
+- **Phase 2 – Feature Integration:** move `ingress` logic into `mirror-daemon`; integrate clipboard-watching into the daemon; converge legacy CLI tooling into `mirror-query`.
 - Phase 3 – Consolidation: move completed experiments to an `archive/` directory; produce a clean, pre-optimized workspace.
 
 ---
