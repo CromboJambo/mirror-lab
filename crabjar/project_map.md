@@ -281,6 +281,13 @@ archive/ excluded from build.
 - `pipelines/` — empty, reserved for future pipeline definitions
 - `mirror-ledger/` — non-crate artifact store: artifacts/, reflections/, work/, ledger.jsonl
 
+### Provenance Entries
+
+| UUID | Item | Set At | Reason | Source |
+|---|---|---|---|---|
+| `prov-agents-2026-05-03` | Provenance Boundaries added to AGENTS.md | 2026-05-03 | Phase 1 architectural formalization | AGENTS.md |
+| `prov-map-drift-2026-05-03` | Drift section updated with provenance entries | 2026-05-03 | Phase 1 project_map alignment | crabjar/project_map.md |
+
 ---
 
 *End of review.*

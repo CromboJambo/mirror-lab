@@ -157,3 +157,18 @@ If your system outputs "clean answers," it's lying to you. Every derived output 
 - what assumptions it made
 - where it might break
 - how stale it is
+
+### Provenance Boundaries
+
+Every merge, every derived output, every configurable baseline gets a UUID + provenance entry (`set_at`, `reason`, `source`).
+
+**Provenance tracking:** immutable entry fixed at the moment of creation. Changes require a new provenance entry — no silent overwrites.
+
+**Adjustable baselines:** thresholds, confidence defaults, decay periods are configurable but each value is anchored to its own provenance entry. A new value replaces the old via a new provenance entry, not in-place mutation.
+
+**Gate concierge enforcement:**
+- `Pending` → `PendingQueue` (queued for review, not executed)
+- `Interrupted` → `InterruptedLog` (logged with reason, returned, not proceeded)
+- No bypass chains — every tool call path must pass through the gate
+
+**Vacuum sealing:** periodic active distillation, entropy pruning, contradiction extraction, context checkpointing. Not passive shadow-state — active, scheduled, and logged.
