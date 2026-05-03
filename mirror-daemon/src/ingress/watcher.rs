@@ -11,6 +11,7 @@ use tokio::sync::Mutex;
 use tokio::sync::mpsc::Sender;
 
 use crate::daemon::EventPayload;
+use mirror_guard::TrustScore;
 
 const SETTLE_SECS: u64 = 5; // seconds a file must be stable before processing
 
@@ -126,38 +127,32 @@ impl EventSource for FileWatcher {
         }
 
         for path in paths_to_send {
-            let payload_str = format!("obs_recorder:{}", path.to_string_lossy());
-            let mut hasher = DefaultHasher::new();
-            payload_str.hash(&mut hasher);
-            let h = hasher.finish();
-
-            {
-                let mut recent = self.recent_hashes.lock().await;
-                if recent.contains(&h) {
-                    tracing::info!(
-                        "Deduplicating event for {:?}: payload hash {} already seen.",
-                        path,
-                        h
-                    );
-                    continue;
-                }
-
-                recent.push_back(h);
-                if recent.len() > 10 {
-                    recent.pop_front();
-                }
-            }
-
             let payload = EventPayload {
                 pipeline: "obs_recorder".to_string(),
                 payload: path.to_string_lossy().into_owned(),
                 attempts: 0,
+                source_event_id: None,
+                trust_layer: 0,
+                confidence: TrustScore::new(0.1),
+                has_raw_data: true,
+                has_uncertainty: true,
+                can_interrupt: true,
             };
 
-            match self.sender.try_send(payload) {
+            match self.sender.try_send(payload.clone()) {
                 Ok(()) => {
                     if let Some(state) = self.pending.lock().await.get_mut(&path) {
                         state.processed = true;
+                    }
+                    let mut hasher = DefaultHasher::new();
+                    payload.payload.hash(&mut hasher);
+                    let h = hasher.finish();
+                    {
+                        let mut recent = self.recent_hashes.lock().await;
+                        recent.push_back(h);
+                        if recent.len() > 10 {
+                            recent.pop_front();
+                        }
                     }
                 }
                 Err(e) => {
