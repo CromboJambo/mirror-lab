@@ -11,7 +11,7 @@ Active components:
 - `src/state_docs.rs`: local state-docs manager with overlay annotations.
 - `src/crabjar-config/`: TOML config crate used by the root binary.
 
-Archived legacy code lives under `archive/legacy/`. It is not part of the supported build.
+Legacy code has been consolidated into the `mirror-*` core ecosystem or removed from the worktree.
 
 ## Commands
 

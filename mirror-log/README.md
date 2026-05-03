@@ -119,7 +119,7 @@ Attention and staging are part of the current default build, not separate featur
 - [USER_GUIDE.md](USER_GUIDE.md): usage, storage, and workflow details
 - [src/lib.rs](src/lib.rs): public module and re-export surface
 - [CHANGELOG.md](CHANGELOG.md): release history
-- For the underlying philosophical framework (the "Why"), refer to the `a-hole/` directory in the workspace root.
+- For the underlying philosophical framework (the "Why"), refer to `AGENTS.md` and `mirror-log/human.md` in the workspace root.
 
 ## Direct SQLite Access
 

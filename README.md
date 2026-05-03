@@ -4,7 +4,7 @@
 
 ## Integration Roadmap
 
-The project is currently undergoing a consolidation phase to merge experimental crates (`crab-cli`, `crab_tui`, `ingress`, etc.) into the core `mirror-*` ecosystem.
+The project is currently undergoing a consolidation phase to merge experimental crates (`ingress`, clipboard-watching, legacy CLI tooling) into the core `mirror-*` ecosystem.
 
 ### Phase 1: Standardization
 - **Dependency Alignment**: Migrating common dependencies (e.g., `tokio`, `thiserror`) to the workspace root.
@@ -13,8 +13,8 @@ The project is currently undergoing a consolidation phase to merge experimental 
 
 ### Phase 2: Feature Integration
 - **Ingress Expansion**: Moving `ingress` logic into `mirror-daemon`.
-- **Event Source Expansion**: Integrating `clipboard-tts` as a watcher in `mirror-daemon`.
-- **UI/CLI Convergence**: Merging `crab-cli` and `crab_tui` capabilities into `mirror-query` and new high-level interfaces.
+- **Event Source Expansion**: Integrating clipboard-watching as a watcher in `mirror-daemon`.
+- **UI/CLI Convergence**: Converging legacy CLI tooling into `mirror-query` and new high-level interfaces.
 
 ### Phase 3: Consolidation
 - **Archive Cleanup**: Moving completed experiments to an `archive/` directory.

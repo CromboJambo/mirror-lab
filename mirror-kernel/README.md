@@ -72,10 +72,12 @@ Immutable events that can be stored and processed.
 
 ```rust
 pub struct MirrorEvent {
-    pub id: i64,
-    pub content: String,
-    pub tags: Vec<MirrorTag>,
+    pub id: String,
     pub timestamp: i64,
+    pub source: String,
+    pub content: String,
+    pub content_hash: Option<String>,
+    pub meta: Option<String>,
 }
 ```
 
@@ -86,8 +88,7 @@ Transformations produced by kernels, linked to source events.
 pub struct Reflection {
     pub new_content: String,
     pub new_tags: Vec<MirrorTag>,
-    pub source_event_ids: Vec<i64>,
-    pub timestamp: i64,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
 }
 ```
 
@@ -235,15 +236,7 @@ Expands event content with additional context markers.
 fn estimate_cost(&self, events: &[MirrorEvent]) -> u32 { 7 } // moderate cost
 ```
 
-### DynamicCostMirror
-Calculates cost based on total event content length.
 
-```rust
-fn estimate_cost(&self, events: &[MirrorEvent]) -> u32 {
-    let base = 4;
-    let content_length = events.iter().map(|e| e.content.len()).sum::<usize>() as u32;
-    base + content_length / 100
-} // Contextual cost estimation
 ```
 
 ## Properties

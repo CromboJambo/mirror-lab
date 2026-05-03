@@ -41,18 +41,15 @@ To maintain high-quality collaboration, the agent will communicate its internal 
 
 ## Agent Autonomy
 
-Agents in crabjar can run nearly fully autonomous as long as:
-- steps are documented
-- actions are reversible
-- reversibility scoring gates permission requests
+Runtime execution is disabled in the current stripped-down build. Reversibility scoring and autonomous execution are reserved for future reintroduction of the executor layer.
 
-### Reversibility Scoring
+### Reversibility Scoring (reserved for future)
 - scan tool calls for reversibility (undo path, data integrity, state preservation)
 - score on a threshold established through testing and iteration
 - request permission if reversibility or other risk factors exceed threshold
 - thresholds evolve through testing and iteration
 
-### Risk Factors
+### Risk Factors (reserved for future)
 - reversibility score
 - confidence decay of the command
 - uncertainty exposure (below threshold → surface before executing)

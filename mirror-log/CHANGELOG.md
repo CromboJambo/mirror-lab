@@ -28,6 +28,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - None
 
+## [Workspace] — 2026-05-03
+
+### Changed
+- `a-hole` directory removed from worktree; crab-cli and crab_tui consolidated into `mirror-*` core ecosystem
+- `mirror-guard` added to workspace members as authorization layer (trust, annealing, execution gate)
+- `mirror-ledger` documented as non-crate artifact store (artifacts, reflections, work, ledger.jsonl)
+- `pipelines/` directory noted as empty, reserved for future definitions
+- Workspace root `Cargo.toml` updated: 18 members, shared deps aligned (rustls-webpki 0.103.13, rand 0.9, ratatui 0.30, path-absolutize 3.1)
+- `crabjar` role updated from execution engine to pure observer (runtime execution disabled)
+- Documentation across all crates updated to reflect structural changes
+
 ## [0.1.8] - 2026-03-30
 
 ### Added

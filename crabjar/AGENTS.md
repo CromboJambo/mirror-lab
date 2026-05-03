@@ -103,19 +103,18 @@ Every time you make something faster, cleaner, or easier to reuse, you risk movi
 
 | Component | Role | Can act? |
 |---|---|---|
-| `crabjar` | Execution engine — state-docs, overlays, knowledge store, tool execution | **⚠️ Gated** |
+| `crabjar` | Pure observer — state-docs, overlays, knowledge store | **No** — runtime execution disabled |
 | `mirror-log` | Append-only event log — no deletion, no modification | **No** |
 | `mirror-kernel` | Decision records, kernel dispatch — produces reflections, not actions | **No** |
 | `mirror-daemon` | File watcher + pipeline execution — the only action-capable component | **⚠️ Gated** |
 
-### Execution Gate (crabjar + mirror-daemon)
+### Execution Gate (mirror-daemon)
 
-Before any tool execution, the gate must enforce:
+The daemon is the single place the system can flip from Path A (stabilizer) → Path B (amplifier). Before any pipeline execution, the gate must enforce:
 
 1. **Raw data reference**: the event must reference raw data, not interpreted summaries
 2. **Uncertainty exposure**: if confidence is below threshold, surface it before executing
 3. **Interruptibility**: allow the gate to return `Interrupted` instead of executing
-4. **Reversibility scoring**: scan tool calls for reversibility; request permission if reversibility or other risk factors exceed established threshold
 
 No component that executes actions is allowed to consume interpreted data without a verification layer. Raw events → OK. Interpreted summaries → must be challenged before execution.
 

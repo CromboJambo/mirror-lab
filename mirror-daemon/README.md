@@ -88,7 +88,7 @@ mirror stats
 
 ## Pipeline Format
 
-Pipelines are Nu scripts stored in the `pipelines/` directory.
+Pipelines are Nu scripts stored in the `pipelines/` directory (currently empty — reserved for future definitions).
 
 Example `pipelines/cashflow.nu`:
 ```nu
@@ -127,11 +127,13 @@ Mirror:
 
 ## Execution Gate (non-negotiable)
 
-The daemon is the single place the system can flip from Path A (stabilizer) → Path B (amplifier). Before any pipeline execution, the gate must enforce:
+The daemon is the single place the system can flip from Path A (stabilizer) → Path B (amplifier). Before any pipeline execution, `mirror-guard` enforces:
 
 1. **Raw data reference**: the event must reference raw data, not interpreted summaries
 2. **Uncertainty exposure**: if confidence is below threshold, surface it before executing
 3. **Interruptibility**: allow the gate to return `Interrupted` instead of executing
+4. **Trust layer auto-execute check**: layer 3 `annealed` (0.8–1.0) allows auto-execute
+5. **Command risk assessment**: high-risk → Interrupted; medium-risk → Pending; low-risk → Proceed
 
 No component that executes actions is allowed to consume interpreted data without a verification layer. Raw events → OK. Interpreted summaries → must be challenged before execution.
 
