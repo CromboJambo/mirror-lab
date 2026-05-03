@@ -32,20 +32,6 @@ impl PipelineExecutor {
     ) -> std::io::Result<ReflectionEnvelope> {
         let pipeline_path = pipeline_path.as_ref();
 
-        // Security: validate pipeline path is within the work directory
-        if let Ok(canonical) = pipeline_path.canonicalize()
-            && !canonical.starts_with(&self.work_dir)
-        {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::PermissionDenied,
-                format!(
-                    "Pipeline path {} is outside the allowed work directory {}",
-                    pipeline_path.display(),
-                    self.work_dir.display()
-                ),
-            ));
-        }
-
         // Validate the file has a .nu extension (nushell script only)
         if pipeline_path.extension().and_then(|e| e.to_str()) != Some("nu") {
             return Err(std::io::Error::new(
