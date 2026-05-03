@@ -1,136 +1,12 @@
 use crate::executor::PipelineExecutor;
 use crate::ledger::Ledger;
 use crate::reflection::ReflectionEnvelope;
+use mirror_guard::{ExecutionGate, GateContext, GateResult, GuardDb, TrustScore};
 use std::path::{Path, PathBuf};
 use tokio::sync::mpsc;
-use uuid::Uuid;
-
-/// Result of the execution gate check.
-#[derive(Debug, Clone, PartialEq)]
-pub enum GateResult {
-    /// Raw data validated, confidence sufficient, pipeline may execute.
-    Validated {
-        /// Confidence level (0.0 to 1.0).
-        confidence: f64,
-    },
-    /// Confidence below threshold; execution deferred.
-    Uncertain {
-        /// Confidence level (0.0 to 1.0).
-        confidence: f64,
-    },
-    /// Raw data reference invalid or gate interrupt triggered.
-    Interrupted,
-}
-
-/// Confidence heuristic configuration for the daemon gate.
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct ConfidenceConfig {
-    pub length_max: f64,
-    pub content_space_factor: f64,
-    pub content_no_space_factor: f64,
-    pub threshold: f64,
-    pub provenance_id: String,
-    pub set_at: i64,
-    pub reason: String,
-    pub source: String,
-}
-
-impl Default for ConfidenceConfig {
-    fn default() -> Self {
-        Self {
-            length_max: 1000.0,
-            content_space_factor: 0.5,
-            content_no_space_factor: 0.3,
-            threshold: 0.3,
-            provenance_id: Uuid::new_v4().to_string(),
-            set_at: chrono::Utc::now().timestamp(),
-            reason: "default confidence heuristic".to_string(),
-            source: "mirror-daemon".to_string(),
-        }
-    }
-}
-
-#[allow(dead_code)]
-impl ConfidenceConfig {
-    pub fn with_length_max(mut self, max: f64) -> Self {
-        self.length_max = max;
-        self.provenance_id = Uuid::new_v4().to_string();
-        self.set_at = chrono::Utc::now().timestamp();
-        self
-    }
-
-    pub fn with_threshold(mut self, threshold: f64) -> Self {
-        self.threshold = threshold;
-        self.provenance_id = Uuid::new_v4().to_string();
-        self.set_at = chrono::Utc::now().timestamp();
-        self
-    }
-
-    pub fn with_space_factor(mut self, factor: f64) -> Self {
-        self.content_space_factor = factor;
-        self.provenance_id = Uuid::new_v4().to_string();
-        self.set_at = chrono::Utc::now().timestamp();
-        self
-    }
-
-    pub fn with_no_space_factor(mut self, factor: f64) -> Self {
-        self.content_no_space_factor = factor;
-        self.provenance_id = Uuid::new_v4().to_string();
-        self.set_at = chrono::Utc::now().timestamp();
-        self
-    }
-}
-
-/// The execution gate — validates raw input before pipeline execution.
-#[allow(dead_code)]
-pub struct ExecutionGate {
-    /// Confidence heuristic configuration.
-    config: ConfidenceConfig,
-}
-
-#[allow(dead_code)]
-impl ExecutionGate {
-    /// Create a new gate with the default threshold.
-    pub fn new() -> Self {
-        Self {
-            config: ConfidenceConfig::default(),
-        }
-    }
-
-    pub fn with_config(mut self, config: ConfidenceConfig) -> Self {
-        self.config = config;
-        self
-    }
-
-    /// Evaluate the event payload against the gate criteria.
-    pub fn evaluate(&self, event_payload: &str) -> GateResult {
-        if event_payload.is_empty() {
-            return GateResult::Interrupted;
-        }
-
-        let confidence = self.compute_confidence(event_payload);
-        if confidence >= self.config.threshold {
-            GateResult::Validated { confidence }
-        } else {
-            GateResult::Uncertain { confidence }
-        }
-    }
-
-    /// Compute confidence from event payload characteristics using provenance-tracked heuristic.
-    fn compute_confidence(&self, event_payload: &str) -> f64 {
-        let length_factor = (event_payload.len().min(self.config.length_max as usize) as f64)
-            / self.config.length_max;
-        let content_factor = if event_payload.contains(' ') {
-            self.config.content_space_factor
-        } else {
-            self.config.content_no_space_factor
-        };
-        (length_factor + content_factor) / 2.0
-    }
-}
 
 /// Event payload passed through the Message Bus from an ingestion source to the daemon core.
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct EventPayload {
     /// The name of the pipeline responsible for processing this event (e.g., "obs_recorder").
@@ -139,6 +15,18 @@ pub struct EventPayload {
     pub payload: String,
     /// Bounded retry count for transient processing failures.
     pub attempts: u8,
+    /// Raw event ID from the source — provenance of the triggering observation.
+    pub source_event_id: Option<String>,
+    /// Trust layer of the source knowledge node.
+    pub trust_layer: u32,
+    /// Confidence score of the source node.
+    pub confidence: TrustScore,
+    /// Whether the event references raw data (not interpreted summaries).
+    pub has_raw_data: bool,
+    /// Whether uncertainty is exposed/surfaced.
+    pub has_uncertainty: bool,
+    /// Whether the action can be interrupted.
+    pub can_interrupt: bool,
 }
 
 // Re-export so the watcher module can import it from here.
@@ -153,6 +41,9 @@ pub struct MirrorDaemon {
 
     /// Directory containing pipeline definitions
     pipelines_dir: PathBuf,
+
+    /// Guard database for execution gating
+    guard_db: GuardDb,
 }
 
 impl MirrorDaemon {
@@ -170,10 +61,16 @@ impl MirrorDaemon {
         let pipelines_dir = pipelines_dir.as_ref().to_path_buf();
         std::fs::create_dir_all(&pipelines_dir)?;
 
+        // Guard database for execution gating
+        let guard_db_path = ledger_path.as_ref().join("guard.db");
+        let guard_db = GuardDb::open(guard_db_path)
+            .map_err(std::io::Error::other)?;
+
         Ok(Self {
             ledger,
             executor,
             pipelines_dir,
+            guard_db,
         })
     }
 
@@ -181,7 +78,7 @@ impl MirrorDaemon {
     pub async fn process_event(
         &self,
         pipeline_name: &str,
-        event_payload: String,
+        event: EventPayload,
     ) -> std::io::Result<String> {
         let pipeline_path = self.pipelines_dir.join(pipeline_name);
 
@@ -192,22 +89,32 @@ impl MirrorDaemon {
             ));
         }
 
-        let gate = ExecutionGate::new();
-        let gate_result = gate.evaluate(&event_payload);
+        let ctx = GateContext {
+            action_type: &event.pipeline,
+            command: "nu",
+            args: vec![pipeline_name.to_string()],
+            trust_layer: event.trust_layer,
+            has_raw_data: event.has_raw_data,
+            has_uncertainty: event.has_uncertainty,
+            can_interrupt: event.can_interrupt,
+        };
+
+        let gate = ExecutionGate::new(&self.guard_db, false, &self.pipelines_dir);
+        let gate_result = gate
+            .check(ctx)
+            .map_err(std::io::Error::other)?;
 
         match gate_result {
-            GateResult::Interrupted => Err(std::io::Error::other("Execution gate interrupted")),
-            GateResult::Uncertain { confidence } => Err(std::io::Error::other(format!(
-                "Execution gate uncertain: confidence {}",
-                confidence
-            ))),
-            GateResult::Validated { confidence: _ } => {
+            GateResult::Interrupted { reason } => Err(std::io::Error::other(reason)),
+            GateResult::Pending => Err(std::io::Error::other("Action pending human review")),
+            GateResult::DryRun | GateResult::Proceed => {
+                let event_clone = event.clone();
                 // Execute the pipeline. The executor is not Send, so we capture the
                 // result synchronously inside spawn_blocking by cloning the paths.
                 let work_dir = self.executor.work_dir().to_path_buf();
                 let mut envelope = tokio::task::spawn_blocking(move || {
                     let executor = PipelineExecutor::new(work_dir)?;
-                    executor.execute(&pipeline_path, event_payload)
+                    executor.execute(&pipeline_path, event_clone.payload)
                 })
                 .await??;
 
@@ -227,7 +134,7 @@ impl MirrorDaemon {
         println!("Daemon started and listening for incoming events...");
 
         while let Some(event) = receiver.recv().await {
-            match self.process_event(&event.pipeline, event.payload).await {
+            match self.process_event(&event.pipeline, event.clone()).await {
                 Ok(id) => println!(
                     "[✅] Successfully processed event for pipeline '{}'. Reflection ID: {}",
                     &event.pipeline, id
@@ -321,23 +228,62 @@ mod tests {
     }
 
     #[test]
-    fn test_gate_validated_on_nonempty_payload() {
-        let gate = ExecutionGate::new();
-        let result = gate.evaluate("ls -la --color=auto --human-readable --recursive --verbose --sort=name --group-directories-first --time-style=full-iso --quote-name --indicator-style=classify --file-type");
-        assert!(matches!(result, GateResult::Validated { confidence: _ }));
+    fn test_gate_proceeds_for_trusted_action() {
+        let tmp = TempDir::new().unwrap();
+        let guard_db = GuardDb::open(tmp.path().join("guard.db")).unwrap();
+        let gate = ExecutionGate::new(&guard_db, false, tmp.path());
+
+        let ctx = GateContext {
+            action_type: "echo",
+            command: "nu",
+            args: vec!["test.nu".to_string()],
+            trust_layer: 3,
+            has_raw_data: true,
+            has_uncertainty: true,
+            can_interrupt: true,
+        };
+
+        let result = gate.check(ctx).unwrap();
+        assert_eq!(result, GateResult::Proceed);
     }
 
     #[test]
-    fn test_gate_interrupted_on_empty_payload() {
-        let gate = ExecutionGate::new();
-        let result = gate.evaluate("");
-        assert_eq!(result, GateResult::Interrupted);
+    fn test_gate_interrupted_without_raw_data() {
+        let tmp = TempDir::new().unwrap();
+        let guard_db = GuardDb::open(tmp.path().join("guard.db")).unwrap();
+        let gate = ExecutionGate::new(&guard_db, false, tmp.path());
+
+        let ctx = GateContext {
+            action_type: "echo",
+            command: "nu",
+            args: vec!["test.nu".to_string()],
+            trust_layer: 2,
+            has_raw_data: false,
+            has_uncertainty: true,
+            can_interrupt: true,
+        };
+
+        let result = gate.check(ctx).unwrap();
+        assert!(matches!(result, GateResult::Interrupted { .. }));
     }
 
     #[test]
-    fn test_gate_uncertain_on_short_payload() {
-        let gate = ExecutionGate::new();
-        let result = gate.evaluate("x");
-        assert_eq!(result, GateResult::Uncertain { confidence: 0.1505 });
+    fn test_gate_pending_for_working_layer() {
+        let tmp = TempDir::new().unwrap();
+        let guard_db = GuardDb::open(tmp.path().join("guard.db")).unwrap();
+        let gate = ExecutionGate::new(&guard_db, false, tmp.path());
+
+        let ctx = GateContext {
+            action_type: "echo",
+            command: "nu",
+            args: vec!["test.nu".to_string()],
+            trust_layer: 2,
+            has_raw_data: true,
+            has_uncertainty: true,
+            can_interrupt: true,
+        };
+
+        let result = gate.check(ctx).unwrap();
+        assert_eq!(result, GateResult::Pending);
     }
 }
