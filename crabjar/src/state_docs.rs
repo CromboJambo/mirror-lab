@@ -86,6 +86,7 @@ impl<'a> Clone for StateDocsManager<'a> {
     }
 }
 
+#[allow(dead_code)]
 impl<'a> StateDocsManager<'a> {
     pub fn new(project_root: impl Into<PathBuf>) -> Self {
         Self {
@@ -94,11 +95,13 @@ impl<'a> StateDocsManager<'a> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn with_emitter(mut self, emitter: &'a dyn AnnotationEventEmitter) -> Self {
         self.emitter = Some(emitter);
         self
     }
 
+    #[allow(dead_code)]
     pub fn project_root(&self) -> &Path {
         &self.root
     }

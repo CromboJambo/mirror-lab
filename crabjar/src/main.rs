@@ -1,4 +1,5 @@
-use crabjar_lib::cli::{Cli, CliCommand, StateCommand, WorkspaceCommand};
+use crabjar_lib::{Cli, CliCommand, StateCommand, WorkspaceCommand};
+use clap::Parser;
 use serde_json::json;
 
 mod dotfile_manager;
@@ -6,8 +7,10 @@ mod knowledge_store;
 mod project_loader;
 mod state_docs;
 
-use dotfile_manager::{DotfileCommand, DotfileManager};
-use knowledge_store::{KnowledgeBridge, commands::KnowledgeCommand};
+use dotfile_manager::DotfileManager;
+use knowledge_store::KnowledgeBridge;
+use knowledge_store::commands::KnowledgeCommandExt;
+use crabjar_lib::{DotfileCommand, KnowledgeCommand};
 use project_loader::ProjectLoader;
 use state_docs::{AnnotationKind, StateDocsManager};
 
@@ -135,8 +138,7 @@ fn handle_dotfile_command(
     let manager = DotfileManager::new(project_root);
 
     match command {
-        DotfileCommand::Propose { staging, target } => manager.propose(&staging, &target),
-        DotfileCommand::Verify { staging, target } => manager.verify(&staging, &target),
+        DotfileCommand::Promote { path } => manager.propose(&path, &path),
     }
 }
 

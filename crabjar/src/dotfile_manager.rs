@@ -1,13 +1,9 @@
-use clap::Subcommand;
+
 use serde_json::json;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-#[derive(Debug, Clone, Subcommand)]
-pub enum DotfileCommand {
-    Propose { staging: String, target: String },
-    Verify { staging: String, target: String },
-}
 
+#[allow(dead_code)]
 pub struct DotfileManager {
     pub project_root: PathBuf,
 }
@@ -51,6 +47,7 @@ impl DotfileManager {
     }
 
     /// Performs a lightweight check of the relationship between staging and target
+    #[allow(dead_code)]
     pub fn verify(
         &self,
         staging: &str,

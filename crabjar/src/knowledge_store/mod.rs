@@ -10,12 +10,11 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
-use crate::state_docs::{AnnotationEntry, AnnotationKind, AnnotationStatus, StateDocsManager};
+use crate::state_docs::{AnnotationEntry, AnnotationKind, StateDocsManager};
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct ConfidenceDefaults {
-    pub note_confidence: f64,
-    pub question_confidence: f64,
     pub promote_confidence: f64,
     pub provenance_id: String,
     pub set_at: u128,
@@ -37,6 +36,7 @@ impl Default for ConfidenceDefaults {
     }
 }
 
+#[allow(dead_code)]
 impl ConfidenceDefaults {
     pub fn with_note_confidence(mut self, value: f64) -> Self {
         self.note_confidence = value;
@@ -83,12 +83,13 @@ pub fn knowledge_response(
 }
 
 /// Bridge between state-docs and knowledge store
+#[allow(dead_code)]
 pub struct KnowledgeBridge<'a> {
-    knowledge_store: Store,
-    state_docs: StateDocsManager<'a>,
+    bridge: &'a agent_context::Store,
     mirror_log_conn: Option<Connection>,
 }
 
+#[allow(dead_code)]
 impl<'a> KnowledgeBridge<'a> {
     const STATE_DOC_SOURCE_TYPE: &'static str = "state_doc_annotation";
     const MIRROR_LOG_SOURCE_TYPE: &'static str = "mirror_log_event";
@@ -101,7 +102,7 @@ impl<'a> KnowledgeBridge<'a> {
         let knowledge_store = Store::open(knowledge_store_path)?;
         let state_docs = StateDocsManager::new(project_root);
         let mirror_log_conn = mirror_log_db_path
-            .map(|path| Connection::open(path))
+            .map(Connection::open)
             .transpose()?;
 
         Ok(Self {
@@ -278,11 +279,8 @@ impl<'a> KnowledgeBridge<'a> {
         provenance_id: &str,
         reason: Option<&str>,
     ) -> Result<usize, agent_context::Error> {
-        self.knowledge_store.deactivate_by_provenance_id(
-            provenance_id,
-            Source::Agent,
-            reason,
-        )
+        self.knowledge_store
+            .deactivate_by_provenance_id(provenance_id, Source::Agent, reason)
     }
 
     /// Promote a raw event from mirror-log to a knowledge entry
@@ -447,7 +445,9 @@ mod tests {
             .unwrap();
         assert_eq!(deactivated, 1);
 
-        let rows = bridge.query_state_docs(&["state-doc", "beta"], 100).unwrap();
+        let rows = bridge
+            .query_state_docs(&["state-doc", "beta"], 100)
+            .unwrap();
         assert_eq!(rows.len(), 0);
     }
 }

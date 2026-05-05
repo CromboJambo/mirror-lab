@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 
 #[derive(Debug, Parser)]
 #[command(
@@ -26,13 +26,13 @@ pub enum CliCommand {
     /// Manage knowledge store
     Knowledge {
         #[command(subcommand)]
-        command: crate::knowledge_store::commands::KnowledgeCommand,
+        command: KnowledgeCommand,
     },
 
     /// Manage dotfile promotions
     Dotfile {
         #[command(subcommand)]
-        command: crate::dotfile_manager::DotfileCommand,
+        command: DotfileCommand,
     },
 
     /// Show workspace configuration
@@ -54,6 +54,18 @@ pub enum StateCommand {
     Question { doc: String, message: String },
     /// Resolve an annotation
     Resolve { doc: String, id: String },
+}
+
+#[derive(Debug, Subcommand, Clone)]
+pub enum KnowledgeCommand {
+    /// Index a state-doc
+    Index { doc: String },
+}
+
+#[derive(Debug, Subcommand, Clone)]
+pub enum DotfileCommand {
+    /// Promote a dotfile to AGENTS.md
+    Promote { path: String },
 }
 
 #[derive(Debug, Subcommand, Clone)]
