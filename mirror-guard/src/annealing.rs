@@ -172,7 +172,7 @@ impl<'a> AnnealingPipeline<'a> {
     }
 
     /// Record an action outcome and update related node confidence.
-    pub fn record_outcome(&self, outcome: &ActionOutcome) -> Result<(), GuardDbError> {
+    pub fn record_outcome(&self, outcome: &ActionOutcome) -> Result<OutcomeStatus, GuardDbError> {
         // Phase 1: Write outcome and capture source_id (hold lock)
         let source_id = {
             let conn = self.db.conn();
@@ -207,14 +207,26 @@ impl<'a> AnnealingPipeline<'a> {
         }; // Lock dropped here
 
         // Phase 2: Update node confidence (no lock held)
-        if let Some(ref node_id) = source_id {
+        let trust_update_ok = if let Some(ref node_id) = source_id {
             if outcome.success {
-                let _ = self
-                    .trust
-                    .reinforce(node_id, outcome.confidence_delta.abs());
+                self.trust
+                    .reinforce(node_id, outcome.confidence_delta.abs())
+                    .is_ok()
             } else {
-                let _ = self.trust.decay(node_id, outcome.confidence_delta.abs());
+                self.trust
+                    .decay(node_id, outcome.confidence_delta.abs())
+                    .is_ok()
             }
+        } else {
+            false
+        };
+
+        if !trust_update_ok {
+            warn!(
+                outcome_id = outcome.id,
+                action_id = outcome.action_id,
+                "Outcome stored but trust update failed"
+            );
         }
 
         debug!(
@@ -222,7 +234,12 @@ impl<'a> AnnealingPipeline<'a> {
             success = outcome.success,
             "Action outcome recorded"
         );
-        Ok(())
+
+        Ok(if trust_update_ok {
+            OutcomeStatus::Executed
+        } else {
+            OutcomeStatus::ExecutedTrustUpdateFailed
+        })
     }
 
     /// Create an action request (gated by trust layer).
@@ -242,9 +259,9 @@ impl<'a> AnnealingPipeline<'a> {
         let can_auto = self.trust.can_auto_execute(trust_layer)?;
         let needs_review = self.trust.requires_review(trust_layer)?;
 
-        let status = if can_auto && !needs_review {
-            ActionStatus::Approved
-        } else if needs_review {
+        let status = if source_node_id.is_some() && can_auto && !needs_review {
+            ActionStatus::TrustApproved
+        } else if needs_review || source_node_id.is_none() {
             ActionStatus::Pending
         } else {
             ActionStatus::Denied
@@ -267,7 +284,7 @@ impl<'a> AnnealingPipeline<'a> {
         )?;
 
         let gate_result = match &status {
-            ActionStatus::Approved => Some("auto-approved by trust layer".to_string()),
+            ActionStatus::TrustApproved => Some("auto-approved by trust layer".to_string()),
             ActionStatus::Pending => Some("pending human review".to_string()),
             ActionStatus::Denied => Some("denied by trust layer".to_string()),
             _ => None,
@@ -387,23 +404,47 @@ mod tests {
     fn test_action_request_auto_approve() {
         let dir = tempdir().unwrap();
         let db = GuardDb::open(dir.path().join("guard.db")).unwrap();
+        let mg = MemoryGraph::new(&db);
+
+        let node_id = mg
+            .add_node(NodeKind::Fact, "test fact", TrustScore::new(0.9))
+            .unwrap();
 
         let pipeline = AnnealingPipeline::new(&db).unwrap();
         let request = pipeline
-            .request_action(None, None, "echo", "hello", 3, TrustScore::new(0.9))
+            .request_action(
+                None,
+                Some(node_id),
+                "echo",
+                "hello",
+                3,
+                TrustScore::new(0.9),
+            )
             .unwrap();
 
-        assert_eq!(request.status, ActionStatus::Approved);
+        assert_eq!(request.status, ActionStatus::TrustApproved);
     }
 
     #[test]
     fn test_action_request_working_requires_review() {
         let dir = tempdir().unwrap();
         let db = GuardDb::open(dir.path().join("guard.db")).unwrap();
+        let mg = MemoryGraph::new(&db);
+
+        let node_id = mg
+            .add_node(NodeKind::Rule, "test rule", TrustScore::new(0.7))
+            .unwrap();
 
         let pipeline = AnnealingPipeline::new(&db).unwrap();
         let request = pipeline
-            .request_action(None, None, "echo", "hello", 2, TrustScore::new(0.7))
+            .request_action(
+                None,
+                Some(node_id),
+                "echo",
+                "hello",
+                2,
+                TrustScore::new(0.7),
+            )
             .unwrap();
 
         assert_eq!(request.status, ActionStatus::Pending);
@@ -413,10 +454,22 @@ mod tests {
     fn test_action_request_pending_review() {
         let dir = tempdir().unwrap();
         let db = GuardDb::open(dir.path().join("guard.db")).unwrap();
+        let mg = MemoryGraph::new(&db);
+
+        let node_id = mg
+            .add_node(NodeKind::Fact, "test fact", TrustScore::new(0.1))
+            .unwrap();
 
         let pipeline = AnnealingPipeline::new(&db).unwrap();
         let request = pipeline
-            .request_action(None, None, "rm", "-rf /tmp/test", 0, TrustScore::new(0.1))
+            .request_action(
+                None,
+                Some(node_id),
+                "rm",
+                "-rf /tmp/test",
+                0,
+                TrustScore::new(0.1),
+            )
             .unwrap();
 
         assert_eq!(request.status, ActionStatus::Pending);

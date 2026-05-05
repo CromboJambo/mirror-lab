@@ -512,7 +512,7 @@ async fn execute_tool_call(function_name: &str, args: &[String]) -> String {
                         concierge.enforce(result, "tool_call", tool, command_args, 2, 0.5);
 
                     match status {
-                        ActionStatus::Approved => {
+                        ActionStatus::TrustApproved => {
                             info!(
                                 "Gate concierge: Proceed — {} with args {:?}",
                                 tool, command_args

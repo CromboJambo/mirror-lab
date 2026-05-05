@@ -134,7 +134,7 @@ impl MirrorDaemon {
         );
 
         match action_status {
-            ActionStatus::Approved => {
+            ActionStatus::TrustApproved => {
                 let event_clone = event.clone();
                 // Execute the pipeline. The executor is not Send, so we capture the
                 // result synchronously inside spawn_blocking by cloning the paths.

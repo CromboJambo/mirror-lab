@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS action_requests (
     payload TEXT NOT NULL,
     trust_layer INTEGER NOT NULL,
     confidence REAL NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'denied', 'executed', 'interrupted')),
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'trust-approved', 'denied', 'executed', 'interrupted')),
     gate_result TEXT,
     requested_at INTEGER NOT NULL DEFAULT (unixepoch()),
     resolved_at INTEGER,

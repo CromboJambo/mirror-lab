@@ -73,7 +73,7 @@ impl GateConcierge {
                     action_type = %action_type,
                     "Gate concierge: Proceed — action authorized"
                 );
-                (ActionStatus::Approved, None, None)
+                (ActionStatus::TrustApproved, None, None)
             }
             GateResult::Pending => {
                 let reason =
@@ -156,7 +156,7 @@ mod tests {
             3,
             0.9,
         );
-        assert_eq!(status, ActionStatus::Approved);
+        assert_eq!(status, ActionStatus::TrustApproved);
         assert!(pending.is_none());
         assert!(interrupted.is_none());
     }
@@ -228,6 +228,6 @@ mod tests {
         assert!(pending.is_some());
         assert!(interrupted.is_none());
         // Pending must not proceed — no bypass chain
-        assert!(status != ActionStatus::Approved);
+        assert!(status != ActionStatus::TrustApproved);
     }
 }

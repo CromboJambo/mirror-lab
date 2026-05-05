@@ -72,7 +72,7 @@ impl GateConcierge {
                     action_type = %action_type,
                     "Gate concierge: Proceed — action authorized"
                 );
-                (ActionStatus::Approved, None, None)
+                (ActionStatus::TrustApproved, None, None)
             }
             GateResult::Pending => {
                 let reason =
@@ -158,7 +158,7 @@ mod tests {
             0.9,
             Some("evt-1".to_string()),
         );
-        assert_eq!(status, ActionStatus::Approved);
+        assert_eq!(status, ActionStatus::TrustApproved);
         assert!(pending.is_none());
         assert!(interrupted.is_none());
     }
@@ -233,6 +233,6 @@ mod tests {
         assert_eq!(status, ActionStatus::Pending);
         assert!(pending.is_some());
         assert!(interrupted.is_none());
-        assert!(status != ActionStatus::Approved);
+        assert!(status != ActionStatus::TrustApproved);
     }
 }
