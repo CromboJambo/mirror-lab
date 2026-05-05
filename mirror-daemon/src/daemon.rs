@@ -1,7 +1,7 @@
 use crate::executor::PipelineExecutor;
 use crate::ledger::Ledger;
-use crate::reflection::ReflectionEnvelope;
-use mirror_guard::{ExecutionGate, GateContext, GateResult, GuardDb, TrustScore};
+use crate::reflection::{InputFingerprint, ReflectionEnvelope};
+use mirror_guard::{ActionStatus, ExecutionGate, GateConcierge, GateContext, GuardDb, TrustScore};
 use std::path::{Path, PathBuf};
 use tokio::sync::mpsc;
 
@@ -44,6 +44,9 @@ pub struct MirrorDaemon {
 
     /// Guard database for execution gating
     guard_db: GuardDb,
+
+    /// Gate concierge for provenance boundary enforcement
+    concierge: GateConcierge,
 }
 
 impl MirrorDaemon {
@@ -72,12 +75,13 @@ impl MirrorDaemon {
             executor,
             canonical_pipelines_dir,
             guard_db,
+            concierge: GateConcierge::default(),
         })
     }
 
     /// Processes a single event payload received from the message bus.
     pub async fn process_event(
-        &self,
+        &mut self,
         pipeline_name: &str,
         event: EventPayload,
     ) -> std::io::Result<String> {
@@ -110,6 +114,7 @@ impl MirrorDaemon {
             args: vec![pipeline_name.to_string()],
             trust_layer: event.trust_layer,
             confidence: event.confidence,
+            source_event_id: event.source_event_id.as_deref(),
             has_raw_data: event.has_raw_data,
             has_uncertainty: event.has_uncertainty,
             can_interrupt: event.can_interrupt,
@@ -118,10 +123,18 @@ impl MirrorDaemon {
         let gate = ExecutionGate::new(&self.guard_db, false, &self.canonical_pipelines_dir);
         let gate_result = gate.check(ctx).map_err(std::io::Error::other)?;
 
-        match gate_result {
-            GateResult::Interrupted { reason } => Err(std::io::Error::other(reason)),
-            GateResult::Pending => Err(std::io::Error::other("Action pending human review")),
-            GateResult::DryRun | GateResult::Proceed => {
+        let (action_status, pending_entry, interrupted_entry) = self.concierge.enforce(
+            gate_result,
+            &event.pipeline,
+            "nu",
+            &[pipeline_name.to_string()],
+            event.trust_layer,
+            event.confidence.get(),
+            event.source_event_id.clone(),
+        );
+
+        match action_status {
+            ActionStatus::Approved => {
                 let event_clone = event.clone();
                 // Execute the pipeline. The executor is not Send, so we capture the
                 // result synchronously inside spawn_blocking by cloning the paths.
@@ -132,17 +145,49 @@ impl MirrorDaemon {
                 })
                 .await??;
 
-                // Append to ledger
+                let source_fp = event.source_event_id.map(|id| InputFingerprint {
+                    source: id,
+                    hash: String::new(),
+                    captured_at: chrono::Utc::now(),
+                    schema: None,
+                });
+
+                envelope.inputs = vec![source_fp.unwrap_or(InputFingerprint {
+                    source: String::new(),
+                    hash: String::new(),
+                    captured_at: chrono::Utc::now(),
+                    schema: None,
+                })];
+
                 let reflection_id = self.ledger.append(&mut envelope)?;
 
                 Ok(reflection_id)
+            }
+            ActionStatus::Pending => {
+                if let Some(entry) = pending_entry {
+                    self.guard_db
+                        .persist_pending_queue_entry(&entry)
+                        .map_err(std::io::Error::other)?;
+                }
+                Err(std::io::Error::other("Action pending human review"))
+            }
+            ActionStatus::Denied => {
+                if let Some(entry) = interrupted_entry {
+                    self.guard_db
+                        .persist_interrupted_log_entry(&entry)
+                        .map_err(std::io::Error::other)?;
+                }
+                Err(std::io::Error::other("Action denied by gate"))
+            }
+            ActionStatus::Executed | ActionStatus::Interrupted => {
+                Err(std::io::Error::other("Unexpected action status"))
             }
         }
     }
 
     /// Runs the main asynchronous daemon loop, consuming events from the channel.
     pub async fn run_async(
-        &self,
+        &mut self,
         mut receiver: mpsc::Receiver<EventPayload>,
     ) -> anyhow::Result<()> {
         println!("Daemon started and listening for incoming events...");
@@ -205,6 +250,7 @@ impl MirrorDaemon {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mirror_guard::GateResult;
     use std::fs;
     use tempfile::TempDir;
 
@@ -214,7 +260,7 @@ mod tests {
         let ledger_dir = tmp.path().join("ledger");
         let pipelines_dir = tmp.path().join("pipelines");
 
-        let daemon = MirrorDaemon::new(&ledger_dir, &pipelines_dir).unwrap();
+        let mut daemon = MirrorDaemon::new(&ledger_dir, &pipelines_dir).unwrap();
 
         assert!(daemon.canonical_pipelines_dir.is_absolute());
         assert!(daemon.ledger.get_reflection("dummy").is_err());
@@ -254,6 +300,7 @@ mod tests {
             args: vec!["test.nu".to_string()],
             trust_layer: 3,
             confidence: TrustScore::new(0.9),
+            source_event_id: Some("evt-daemon-1"),
             has_raw_data: true,
             has_uncertainty: true,
             can_interrupt: true,
@@ -275,6 +322,7 @@ mod tests {
             args: vec!["test.nu".to_string()],
             trust_layer: 2,
             confidence: TrustScore::new(0.65),
+            source_event_id: Some("evt-daemon-2"),
             has_raw_data: false,
             has_uncertainty: true,
             can_interrupt: true,
@@ -296,6 +344,7 @@ mod tests {
             args: vec!["test.nu".to_string()],
             trust_layer: 2,
             confidence: TrustScore::new(0.65),
+            source_event_id: Some("evt-daemon-3"),
             has_raw_data: true,
             has_uncertainty: true,
             can_interrupt: true,
