@@ -108,7 +108,7 @@ mod tests {
         let file = dir.path().join("test.md");
         std::fs::write(&file, "test content\n").unwrap();
 
-        let result = index_reference(&file, "test-skill").unwrap();
+        let result = crate::index_reference(&file, "test-skill").unwrap();
         assert_eq!(result["line_count"], 1);
     }
 
@@ -117,7 +117,7 @@ mod tests {
         let dir = tempdir().unwrap();
         let file = dir.path().join("missing.md");
 
-        let result = index_reference(&file, "test-skill");
+        let result = crate::index_reference(&file, "test-skill");
         assert!(result.is_err());
     }
 
@@ -127,7 +127,7 @@ mod tests {
         let file = dir.path().join("test.md");
         std::fs::write(&file, "test content\n").unwrap();
 
-        let result = retrieve_reference(&file, 7).unwrap();
+        let result = crate::retrieve_reference(&file, 7).unwrap();
         assert_eq!(result, "test content\n");
     }
 
@@ -137,7 +137,7 @@ mod tests {
         let file = dir.path().join("test.md");
         std::fs::write(&file, "test content\n").unwrap();
 
-        let result = check_staleness(&file, 7).unwrap();
+        let result = crate::check_staleness(&file, 7).unwrap();
         assert!(!result);
     }
 }

@@ -102,14 +102,14 @@ mod tests {
         )
         .unwrap();
 
-        let found = discover_skills(dir.path(), dir.path()).unwrap();
+        let found = crate::discover_skills(dir.path(), dir.path()).unwrap();
         assert!(found.contains(&skill_dir));
     }
 
     #[test]
     fn find_scripts_returns_empty_when_no_scripts_dir() {
         let dir = tempdir().unwrap();
-        let scripts = find_scripts(dir.path()).unwrap();
+        let scripts = crate::find_scripts(dir.path()).unwrap();
         assert!(scripts.is_empty());
     }
 
@@ -124,7 +124,7 @@ mod tests {
         )
         .unwrap();
 
-        let scripts = find_scripts(dir.path()).unwrap();
+        let scripts = crate::find_scripts(dir.path()).unwrap();
         assert_eq!(scripts.len(), 1);
     }
 }
