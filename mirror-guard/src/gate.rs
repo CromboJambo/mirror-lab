@@ -5,6 +5,7 @@ use uuid::Uuid;
 use crate::guard_db::GuardDb;
 use crate::guard_db::GuardDbError;
 use crate::trust::TrustManager;
+use crate::types::TrustScore;
 
 /// Result of a gate check
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -75,7 +76,23 @@ impl<'a> ExecutionGate<'a> {
             return Ok(GateResult::Interrupted { reason });
         }
 
-        // 4. Interruptibility check
+        // 4. Confidence threshold
+        if ctx.confidence.get() < self.risk_config.confidence_floor {
+            let reason = format!(
+                "Confidence {:.3} below floor {:.3}; must surface before execution",
+                ctx.confidence.get(),
+                self.risk_config.confidence_floor
+            );
+            warn!(
+                action = %ctx.action_type,
+                confidence = ctx.confidence.get(),
+                %reason,
+                "Gate interrupted"
+            );
+            return Ok(GateResult::Interrupted { reason });
+        }
+
+        // 5. Interruptibility check
         if !ctx.can_interrupt {
             let reason =
                 "Action cannot be interrupted; gate safety requirement not met".to_string();
@@ -163,6 +180,7 @@ pub struct GateContext<'a> {
     pub command: &'a str,
     pub args: Vec<String>,
     pub trust_layer: u32,
+    pub confidence: TrustScore,
     pub has_raw_data: bool,
     pub has_uncertainty: bool,
     pub can_interrupt: bool,
@@ -181,6 +199,7 @@ pub enum CommandRisk {
 pub struct RiskConfig {
     pub high_risk: Vec<String>,
     pub medium_risk: Vec<String>,
+    pub confidence_floor: f64,
     pub provenance_id: String,
     pub set_at: i64,
     pub reason: String,
@@ -192,6 +211,7 @@ impl Default for RiskConfig {
         Self {
             high_risk: HIGH_RISK_COMMANDS.iter().map(|s| s.to_string()).collect(),
             medium_risk: MEDIUM_RISK_COMMANDS.iter().map(|s| s.to_string()).collect(),
+            confidence_floor: 0.6,
             provenance_id: Uuid::new_v4().to_string(),
             set_at: chrono::Utc::now().timestamp(),
             reason: "default risk thresholds".to_string(),
@@ -210,6 +230,13 @@ impl RiskConfig {
 
     pub fn with_medium_risk(mut self, commands: Vec<String>) -> Self {
         self.medium_risk = commands;
+        self.provenance_id = Uuid::new_v4().to_string();
+        self.set_at = chrono::Utc::now().timestamp();
+        self
+    }
+
+    pub fn with_confidence_floor(mut self, floor: f64) -> Self {
+        self.confidence_floor = floor.clamp(0.0, 1.0);
         self.provenance_id = Uuid::new_v4().to_string();
         self.set_at = chrono::Utc::now().timestamp();
         self
@@ -281,6 +308,7 @@ mod tests {
             command: "echo",
             args: vec!["hello".to_string()],
             trust_layer: 3,
+            confidence: TrustScore::new(0.9),
             has_raw_data: true,
             has_uncertainty: true,
             can_interrupt: true,
@@ -301,6 +329,7 @@ mod tests {
             command: "echo",
             args: vec!["hello".to_string()],
             trust_layer: 2,
+            confidence: TrustScore::new(0.65),
             has_raw_data: true,
             has_uncertainty: true,
             can_interrupt: true,
@@ -321,6 +350,7 @@ mod tests {
             command: "echo",
             args: vec!["hello".to_string()],
             trust_layer: 2,
+            confidence: TrustScore::new(0.65),
             has_raw_data: false,
             has_uncertainty: true,
             can_interrupt: true,
@@ -341,6 +371,7 @@ mod tests {
             command: "echo",
             args: vec!["hello".to_string()],
             trust_layer: 0,
+            confidence: TrustScore::new(0.65),
             has_raw_data: true,
             has_uncertainty: true,
             can_interrupt: true,
@@ -361,6 +392,7 @@ mod tests {
             command: "rm",
             args: vec!["-rf".to_string(), "/".to_string()],
             trust_layer: 0,
+            confidence: TrustScore::new(0.65),
             has_raw_data: false,
             has_uncertainty: false,
             can_interrupt: false,
@@ -381,6 +413,7 @@ mod tests {
             command: "rm",
             args: vec!["-rf".to_string(), "/tmp/test".to_string()],
             trust_layer: 3,
+            confidence: TrustScore::new(0.9),
             has_raw_data: true,
             has_uncertainty: true,
             can_interrupt: true,
@@ -401,6 +434,7 @@ mod tests {
             command: "git",
             args: vec!["commit".to_string(), "-m".to_string(), "test".to_string()],
             trust_layer: 3,
+            confidence: TrustScore::new(0.9),
             has_raw_data: true,
             has_uncertainty: true,
             can_interrupt: true,
@@ -408,6 +442,27 @@ mod tests {
 
         let result = gate.check(ctx).unwrap();
         assert_eq!(result, GateResult::Pending);
+    }
+
+    #[test]
+    fn test_gate_interrupts_below_confidence_floor() {
+        let dir = tempdir().unwrap();
+        let db = GuardDb::open(dir.path().join("guard.db")).unwrap();
+        let gate = ExecutionGate::new(&db, false, dir.path());
+
+        let ctx = GateContext {
+            action_type: "echo",
+            command: "echo",
+            args: vec!["hello".to_string()],
+            trust_layer: 3,
+            confidence: TrustScore::new(0.1),
+            has_raw_data: true,
+            has_uncertainty: true,
+            can_interrupt: true,
+        };
+
+        let result = gate.check(ctx).unwrap();
+        assert!(matches!(result, GateResult::Interrupted { .. }));
     }
 
     #[test]
