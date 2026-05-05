@@ -187,17 +187,25 @@ pub struct ReviewRecord {
 #[serde(rename_all = "lowercase")]
 pub enum ActionStatus {
     Pending,
-    Approved,
+    TrustApproved,
     Denied,
     Executed,
     Interrupted,
+}
+
+/// Status of an action outcome record
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OutcomeStatus {
+    Executed,
+    ExecutedTrustUpdateFailed,
 }
 
 impl fmt::Display for ActionStatus {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ActionStatus::Pending => write!(f, "pending"),
-            ActionStatus::Approved => write!(f, "approved"),
+            ActionStatus::TrustApproved => write!(f, "trust-approved"),
             ActionStatus::Denied => write!(f, "denied"),
             ActionStatus::Executed => write!(f, "executed"),
             ActionStatus::Interrupted => write!(f, "interrupted"),
