@@ -130,6 +130,14 @@ impl EventSource for FileWatcher {
             let mut hasher = DefaultHasher::new();
             path.hash(&mut hasher);
             let h = hasher.finish();
+
+            {
+                let recent = self.recent_hashes.lock().await;
+                if recent.contains(&h) {
+                    continue;
+                }
+            }
+
             let source_event_id = format!("evt_{}", h);
 
             let payload = EventPayload {
