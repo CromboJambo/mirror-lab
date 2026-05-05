@@ -502,6 +502,7 @@ async fn execute_tool_call(function_name: &str, args: &[String]) -> String {
                 args: command_args.to_vec(),
                 trust_layer: 2,
                 confidence: mirror_guard::TrustScore::new(0.5),
+                source_event_id: None,
                 has_raw_data: true,
                 has_uncertainty: true,
                 can_interrupt: true,

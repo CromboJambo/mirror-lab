@@ -28,6 +28,9 @@ pub struct LedgerEntry {
     /// Pipeline source path
     pub pipeline: String,
 
+    /// Source event ID from ingress provenance
+    pub source_event_id: Option<String>,
+
     /// Success or failure
     pub success: bool,
 }
@@ -98,6 +101,7 @@ impl Ledger {
             ledger_time: chrono::Utc::now(),
             envelope_path: meta_path,
             pipeline: envelope.transform.source_path.display().to_string(),
+            source_event_id: envelope.inputs.first().map(|fp| fp.source.clone()),
             success: envelope.is_success(),
         };
 

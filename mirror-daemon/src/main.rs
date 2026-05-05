@@ -55,7 +55,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     match cli.command {
         Commands::Run => {
-            let daemon = MirrorDaemon::new(cli.ledger.clone(), cli.pipelines.clone())?;
+            let mut daemon = MirrorDaemon::new(cli.ledger.clone(), cli.pipelines.clone())?;
             let (tx, rx) = tokio::sync::mpsc::channel::<EventPayload>(32);
 
             // Load ingress config for watch directory and extensions

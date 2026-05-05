@@ -25,6 +25,7 @@
 //! - **Every Abstraction Carries Doubt**: Outputs include uncertainty, assumptions, and staleness info
 
 pub mod annealing;
+pub mod concierge;
 pub mod gate;
 pub mod guard_db;
 pub mod memory;
@@ -33,6 +34,7 @@ pub mod trust;
 pub mod types;
 
 pub use annealing::AnnealingPipeline;
+pub use concierge::{GateConcierge, InterruptedLogEntry, PendingQueueEntry};
 pub use gate::{CommandRisk, ExecutionGate, GateContext, GateResult};
 pub use guard_db::{GuardDb, GuardDbError};
 pub use memory::MemoryGraph;
