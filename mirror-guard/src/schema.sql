@@ -158,3 +158,38 @@ SELECT ar.*, n.confidence AS node_confidence
 FROM action_requests ar
 LEFT JOIN memory_nodes n ON ar.source_node_id = n.id
 WHERE ar.status = 'pending';
+
+-- ============================================================================
+-- Pending Queue: actions queued for human review
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS pending_queue (
+    id TEXT PRIMARY KEY,
+    gate_result_id TEXT NOT NULL,
+    action_type TEXT NOT NULL,
+    command TEXT NOT NULL,
+    args TEXT NOT NULL,
+    trust_layer INTEGER NOT NULL,
+    confidence REAL NOT NULL,
+    source_event_id TEXT,
+    queued_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    reason TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_pending_queue_status ON pending_queue(queued_at DESC);
+
+-- ============================================================================
+-- Interrupted Log: actions blocked by the gate
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS interrupted_log (
+    id TEXT PRIMARY KEY,
+    gate_result_id TEXT NOT NULL,
+    action_type TEXT NOT NULL,
+    command TEXT NOT NULL,
+    args TEXT NOT NULL,
+    trust_layer INTEGER NOT NULL,
+    source_event_id TEXT,
+    reason TEXT NOT NULL,
+    logged_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+
+CREATE INDEX IF NOT EXISTS idx_interrupted_log_time ON interrupted_log(logged_at DESC);
