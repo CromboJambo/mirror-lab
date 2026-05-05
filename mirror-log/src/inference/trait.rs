@@ -82,7 +82,9 @@ impl Default for InferenceConfig {
     fn default() -> Self {
         Self {
             enabled: false,
-            api_url: Some("http://localhost:1234/v1".to_string()),
+            api_url: std::env::var("MIRROR_INFERENCE_URL")
+                .ok()
+                .map(|v| v.to_string()),
             api_key: None,
             model: "mirror-log-model".to_string(),
             embedding_dim: 1536,

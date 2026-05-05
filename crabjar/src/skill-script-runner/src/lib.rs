@@ -65,10 +65,19 @@ pub async fn execute_script(
     script_path: &std::path::Path,
     args: &[String],
     env: std::collections::HashMap<String, String>,
+    work_dir: &std::path::Path,
+    timeout: std::time::Duration,
+    allowlist: &std::collections::HashSet<std::path::PathBuf>,
 ) -> Result<serde_json::Value> {
+    if !allowlist.contains(script_path) {
+        anyhow::bail!("script not in allowlist: {}", script_path.display());
+    }
+
     let output = tokio::process::Command::new(script_path)
         .args(args)
+        .current_dir(work_dir)
         .envs(&env)
+        .timeout(timeout)
         .output()
         .await?;
 

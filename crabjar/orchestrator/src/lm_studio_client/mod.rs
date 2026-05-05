@@ -709,7 +709,11 @@ mod openai {
             .and_then(|v| serde_json::from_value::<UnifiedStats>(v.clone()).ok());
 
         Ok(UnifiedChatResponse {
-            model_instance_id: req::get("model").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            model_instance_id: value
+            .get("model")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
             output: output_items,
             stats,
             response_id: None,
@@ -831,7 +835,11 @@ mod anthropic {
             .and_then(|v| serde_json::from_value::<UnifiedStats>(v.clone()).ok());
 
         Ok(UnifiedChatResponse {
-            model_instance_id: req::get("model").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            model_instance_id: value
+            .get("model")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
             output: output_items,
             stats,
             response_id: None,

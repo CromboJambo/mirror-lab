@@ -4,16 +4,28 @@ use serde_json::Value;
 use crate::execute_script;
 
 /// Execute a skill script with default environment.
-pub fn execute_default(script_path: &std::path::Path, args: &[String]) -> Result<Value> {
+pub fn execute_default(
+    script_path: &std::path::Path,
+    args: &[String],
+    work_dir: &std::path::Path,
+) -> Result<Value> {
     let env = std::collections::HashMap::from_iter([
-        (
-            "HOME".to_string(),
-            std::env::var("HOME").unwrap_or_default(),
-        ),
+        ("HOME".to_string(), std::env::var("HOME").unwrap_or_default()),
         ("PWD".to_string(), std::env::var("PWD").unwrap_or_default()),
     ]);
 
-    tokio::runtime::Runtime::new()?.block_on(execute_script(script_path, args, env))
+    let allowlist = std::collections::HashSet::from_iter([script_path.to_owned()]);
+
+    let timeout = std::time::Duration::from_secs(30);
+
+    tokio::runtime::Runtime::new()?.block_on(execute_script(
+        script_path,
+        args,
+        env,
+        work_dir,
+        timeout,
+        &allowlist,
+    ))
 }
 
 /// Execute multiple scripts in parallel.

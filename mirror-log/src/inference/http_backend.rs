@@ -41,7 +41,8 @@ fn default_timeout() -> u64 {
 impl Default for HttpConfig {
     fn default() -> Self {
         Self {
-            base_url: "http://localhost:1234/v1".to_string(),
+            base_url: std::env::var("MIRROR_INFERENCE_URL")
+                .unwrap_or_else(|_| "http://localhost:1234/v1".to_string()),
             api_key: None,
             timeout: 30,
         }
@@ -88,8 +89,7 @@ impl HttpBackend {
     pub fn new(config: HttpConfig) -> Self {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(config.timeout))
-            .build()
-            .expect("Failed to create HTTP client");
+            .build()?;
 
         Self { client, config }
     }

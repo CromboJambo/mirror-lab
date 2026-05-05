@@ -74,6 +74,9 @@ reqwest = { version = "0.12" }
 # Security / gitignore matching
 ignore = "0.4"
 
+# XDG paths
+directories = "5.0"
+
 # WebSocket
 ws_stream_tungstenite = "0.15"
 async-tungstenite = "0.29"

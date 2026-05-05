@@ -1,28 +1,71 @@
 use anyhow::Result;
 use chrono::Duration;
+use clap::{Parser, Subcommand};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::os::unix::fs::FileTypeExt;
 use std::path::PathBuf;
 use uuid::Uuid;
+use directories::ProjectDirs;
 
-const ZELLIJ_SOCK_DIR: &str = "/home/crombo/.local/share/zellij";
-const ZELLIJ_SESSION_INFO_CACHE_DIR: &str = "/home/crombo/.cache/zellij/contract_version_1/session_info";
+#[derive(Parser)]
+#[command(name = "mirror-zsession")]
+#[command(about = "List and connect to Zellij sessions via WebSocket")]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
 
-fn list_active_sessions() -> Result<Vec<Value>> {
+#[derive(Subcommand)]
+enum Commands {
+    List {
+        /// Generate a new auth token and insert into tokens.db
+        #[arg(long)]
+        create_token: bool,
+    },
+    Connect {
+        /// Zellij session name to connect to
+        session: String,
+        /// Auth token (or ZELLIJ_AUTH_TOKEN env var)
+        #[arg(long)]
+        auth_token: Option<String>,
+    },
+}
+
+fn get_zellij_dirs() -> Result<(PathBuf, PathBuf)> {
+    let dirs = ProjectDirs::from("org", "Zellij Contributors", "Zellij")
+        .ok_or_else(|| anyhow::anyhow!("Zellij ProjectDirs not available"))?;
+
+    let sock_dir = dirs.runtime_dir().to_owned();
+
+    let cache_dir = dirs
+        .cache_dir()
+        .ok_or_else(|| std::env::temp_dir())?
+        .to_owned()
+        .join("contract_version_1")
+        .join("session_info");
+
+    Ok((sock_dir, cache_dir))
+}
+
+fn get_token_db_path() -> Result<PathBuf> {
+    let dirs = ProjectDirs::from("org", "Zellij Contributors", "Zellij")
+        .ok_or_else(|| anyhow::anyhow!("Zellij ProjectDirs not available"))?;
+
+    let data_dir = dirs.data_dir().to_owned();
+
+    Ok(data_dir.join("tokens.db"))
+}
+
+fn list_active_sessions(sock_dir: &PathBuf) -> Result<Vec<Value>> {
     let mut sessions = Vec::new();
 
-    let sock_dir = PathBuf::from(ZELLIJ_SOCK_DIR);
-    let entries = fs::read_dir(&sock_dir)?;
+    let entries = fs::read_dir(sock_dir)?;
 
     for entry in entries {
         let entry = entry?;
         let name = entry.file_name().into_string().unwrap();
-
-        if name == "tokens.db" {
-            continue;
-        }
 
         let path = entry.path();
 
@@ -45,11 +88,10 @@ fn list_active_sessions() -> Result<Vec<Value>> {
     Ok(sessions)
 }
 
-fn list_resurrectable_sessions() -> Result<Vec<Value>> {
+fn list_resurrectable_sessions(cache_dir: &PathBuf) -> Result<Vec<Value>> {
     let mut sessions = Vec::new();
 
-    let cache_dir = PathBuf::from(ZELLIJ_SESSION_INFO_CACHE_DIR);
-    let entries = fs::read_dir(&cache_dir)?;
+    let entries = fs::read_dir(cache_dir)?;
 
     for entry in entries {
         let entry = entry?;
@@ -71,15 +113,14 @@ fn list_resurrectable_sessions() -> Result<Vec<Value>> {
     Ok(sessions)
 }
 
-fn validate_auth_token(auth_token: &str) -> Result<bool> {
+fn validate_auth_token(auth_token: &str, db_path: &PathBuf) -> Result<bool> {
     let token_hash = {
         let mut hasher = Sha256::new();
         hasher.update(auth_token.as_bytes());
         format!("{:x}", hasher.finalize())
     };
 
-    let db_path = PathBuf::from("/home/crombo/.local/share/zellij/tokens.db");
-    let conn = rusqlite::Connection::open(&db_path)?;
+    let conn = rusqlite::Connection::open(db_path)?;
 
     let count: i64 = conn.query_row(
         "SELECT COUNT(*) FROM tokens WHERE token_hash = ?1",
@@ -90,15 +131,14 @@ fn validate_auth_token(auth_token: &str) -> Result<bool> {
     Ok(count > 0)
 }
 
-fn create_session_token(auth_token: &str) -> Result<String> {
+fn create_session_token(auth_token: &str, db_path: &PathBuf) -> Result<String> {
     let token_hash = {
         let mut hasher = Sha256::new();
         hasher.update(auth_token.as_bytes());
         format!("{:x}", hasher.finalize())
     };
 
-    let db_path = PathBuf::from("/home/crombo/.local/share/zellij/tokens.db");
-    let conn = rusqlite::Connection::open(&db_path)?;
+    let conn = rusqlite::Connection::open(db_path)?;
 
     let count: i64 = conn.query_row(
         "SELECT COUNT(*) FROM tokens WHERE token_hash = ?1",
@@ -125,10 +165,12 @@ fn create_session_token(auth_token: &str) -> Result<String> {
     Ok(session_token)
 }
 
-async fn connect_to_terminal_ws(session_name: &str, web_client_id: &str, auth_token: &str) -> Result<()> {
-    let session_token = create_session_token(auth_token)?;
+async fn connect_to_terminal_ws(session_name: &str, web_client_id: &str, auth_token: &str, db_path: &PathBuf) -> Result<()> {
+    let session_token = create_session_token(auth_token, db_path)?;
 
-    let url = format!("ws://127.0.0.1:8082/ws/{}", session_name);
+    let url = std::env::var("ZELLIJ_WS_URL")
+        .unwrap_or_else(|_| "ws://127.0.0.1:8082".to_string())
+        + &format!("/ws/{}", session_name);
     let response = reqwest::Client::new()
         .get(&url)
         .query(&[("web_client_id", web_client_id)])
@@ -139,8 +181,6 @@ async fn connect_to_terminal_ws(session_name: &str, web_client_id: &str, auth_to
     if response.status().is_success() {
         let _socket = response.upgrade().await?;
         println!("connected to ws://127.0.0.1:8082/ws/{}", session_name);
-        println!("web_client_id: {}", web_client_id);
-        println!("session_token: {}", session_token);
     } else {
         anyhow::bail!("connection failed: {}", response.status());
     }
@@ -148,44 +188,66 @@ async fn connect_to_terminal_ws(session_name: &str, web_client_id: &str, auth_to
     Ok(())
 }
 
+fn create_new_token(db_path: &PathBuf) -> Result<Uuid> {
+    let conn = rusqlite::Connection::open(db_path)?;
+
+    let count: i64 = conn.query_row("SELECT COUNT(*) FROM tokens", [], |row| row.get(0))?;
+
+    let token = Uuid::new_v4();
+    let token_hash = {
+        let mut hasher = Sha256::new();
+        hasher.update(token.as_bytes());
+        format!("{:x}", hasher.finalize())
+    };
+    let name = format!("token_{}", count + 1);
+
+    conn.execute(
+        "INSERT INTO tokens (token_hash, name, read_only) VALUES (?1, ?2, ?3)",
+        [&token_hash, &name, "0"],
+    )?;
+
+    Ok(token)
+}
+
 fn main() -> Result<()> {
-    let auth_token = std::env::var("ZELLIJ_AUTH_TOKEN")
-        .ok()
-        .unwrap_or_else(|| {
-            let token = Uuid::new_v4().to_string();
-            let token_hash = {
-                let mut hasher = Sha256::new();
-                hasher.update(token.as_bytes());
-                format!("{:x}", hasher.finalize())
-            };
-            let db_path = PathBuf::from("/home/crombo/.local/share/zellij/tokens.db");
-            let conn = rusqlite::Connection::open(&db_path).unwrap();
-            let count: i64 = conn.query_row("SELECT COUNT(*) FROM tokens", [], |row| row.get(0)).unwrap();
-            let name = format!("token_{}", count + 1);
-            conn.execute(
-                "INSERT INTO tokens (token_hash, name, read_only) VALUES (?1, ?2, ?3)",
-                [&token_hash, &name, "0"],
-            ).unwrap();
-            println!("new auth token generated: {}", token);
-            token
-        });
+    let cli = Cli::parse();
 
-    let valid = validate_auth_token(&auth_token)?;
-    println!("auth_token valid: {}", valid);
+    let (sock_dir, cache_dir) = get_zellij_dirs()?;
+    let token_db_path = get_token_db_path()?;
 
-    if valid {
-        let session_token = create_session_token(&auth_token)?;
-        println!("session_token: {}", session_token);
+    match cli.command {
+        Commands::List { create_token } => {
+            if create_token {
+                let token = create_new_token(&token_db_path)?;
+                let output = json!({"new_token": token.to_string()});
+                println!("{}", serde_json::to_string(&output)?);
+            }
+
+            let active = list_active_sessions(&sock_dir)?;
+            let resurrectable = list_resurrectable_sessions(&cache_dir)?;
+
+            let output = json!({"active": active, "resurrectable": resurrectable});
+            println!("{}", serde_json::to_string(&output)?);
+
+            Ok(())
+        }
+        Commands::Connect { session: _, auth_token } => {
+            let auth_token = auth_token
+                .or_else(|| std::env::var("ZELLIJ_AUTH_TOKEN").ok())
+                .ok_or_else(|| anyhow::anyhow!("auth token required"))?;
+
+            let valid = validate_auth_token(&auth_token, &token_db_path)?;
+
+            let output = json!({"auth_valid": valid});
+            println!("{}", serde_json::to_string(&output)?);
+
+            if valid {
+            let session_token = create_session_token(&auth_token, &token_db_path)?;
+            let output = json!({"session_token": session_token});
+            println!("{}", serde_json::to_string(&output)?);
+            }
+
+            Ok(())
+        }
     }
-
-    let active = list_active_sessions()?;
-    let resurrectable = list_resurrectable_sessions()?;
-
-    let output = Value::Object(serde_json::Map::from_iter([
-        ("active".to_string(), Value::Array(active)),
-        ("resurrectable".to_string(), Value::Array(resurrectable)),
-    ]));
-    println!("{}", serde_json::to_string(&output)?);
-
-    Ok(())
 }
