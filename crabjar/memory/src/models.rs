@@ -51,19 +51,17 @@ impl KnowledgeEntry {
     }
 
     pub fn meta<V: serde::Serialize>(mut self, key: impl Into<String>, value: V) -> Self {
-        if let Ok(val) = serde_json::to_value(value) {
-            if let Some(obj) = self.metadata.as_object_mut() {
-                obj.insert(key.into(), val);
-            }
+        if let Ok(val) = serde_json::to_value(value)
+            && let Some(obj) = self.metadata.as_object_mut() {
+            obj.insert(key.into(), val);
         }
         self
     }
 
     pub fn stale(mut self, after: chrono::DateTime<Utc>) -> Self {
-        if let Ok(val) = serde_json::to_value(after) {
-            if let Some(obj) = self.metadata.as_object_mut() {
-                obj.insert("stale_after".into(), val);
-            }
+        if let Ok(val) = serde_json::to_value(after)
+            && let Some(obj) = self.metadata.as_object_mut() {
+            obj.insert("stale_after".into(), val);
         }
         self
     }

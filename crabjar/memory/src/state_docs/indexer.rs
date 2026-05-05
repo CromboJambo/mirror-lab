@@ -8,7 +8,6 @@ use rusqlite::{Connection, params};
 use std::fs;
 use std::path::Path;
 
-
 /// Index a single state-doc Markdown file into SQLite
 pub fn index_doc(
     conn: &Connection,
@@ -54,10 +53,7 @@ pub fn index_doc(
 }
 
 /// Index all state-docs in a directory into SQLite
-pub fn index_all_docs(
-    conn: &Connection,
-    docs_dir: &Path,
-) -> Result<usize, crate::Error> {
+pub fn index_all_docs(conn: &Connection, docs_dir: &Path) -> Result<usize, crate::Error> {
     if !docs_dir.exists() {
         return Ok(0);
     }
@@ -282,11 +278,10 @@ fn extract_tables(content: &str) -> Vec<Table> {
     }
 
     // Close any open table
-    if in_table {
-        if let Some(mut t) = current_table.take() {
-            t.end_line = lines.len();
-            tables.push(t);
-        }
+    if in_table
+        && let Some(mut t) = current_table.take() {
+        t.end_line = lines.len();
+        tables.push(t);
     }
 
     tables
@@ -397,11 +392,21 @@ fn extract_confidence(content: &str) -> Option<ConfidenceAssessment> {
             if line.starts_with("## ") && !line.starts_with("## 8.") {
                 if let Some(ref mut c) = confidence {
                     match current_key.as_ref() {
-                        Some(ref key) if *key == "what_captured" => c.what_captured = current_value_lines.join("\n"),
-                        Some(ref key) if *key == "what_missed" => c.what_missed = current_value_lines.join("\n"),
-                        Some(ref key) if *key == "assumptions" => c.assumptions = current_value_lines.clone(),
-                        Some(ref key) if *key == "blind_spots" => c.blind_spots = current_value_lines.clone(),
-                        Some(ref key) if *key == "stale_after" => c.stale_after = current_value_lines.join("\n"),
+                        Some(key) if key == "what_captured" => {
+                            c.what_captured = current_value_lines.join("\n")
+                        }
+                        Some(key) if key == "what_missed" => {
+                            c.what_missed = current_value_lines.join("\n")
+                        }
+                        Some(key) if key == "assumptions" => {
+                            c.assumptions = current_value_lines.clone()
+                        }
+                        Some(key) if key == "blind_spots" => {
+                            c.blind_spots = current_value_lines.clone()
+                        }
+                        Some(key) if key == "stale_after" => {
+                            c.stale_after = current_value_lines.join("\n")
+                        }
                         _ => {}
                     }
                 }
@@ -412,6 +417,7 @@ fn extract_confidence(content: &str) -> Option<ConfidenceAssessment> {
             }
 
             // Accumulate content for current key
+            #[allow(clippy::collapsible_if)]
             if let Some(ref mut c) = confidence {
                 if let Some(ref key) = current_key {
                     match key.as_str() {
@@ -429,14 +435,25 @@ fn extract_confidence(content: &str) -> Option<ConfidenceAssessment> {
     }
 
     // Close any open key
+    #[allow(clippy::collapsible_if)]
     if in_confidence {
         if let Some(ref mut c) = confidence {
             match current_key.as_ref() {
-                Some(ref key) if *key == "what_captured" => c.what_captured = current_value_lines.join("\n"),
-                Some(ref key) if *key == "what_missed" => c.what_missed = current_value_lines.join("\n"),
-                Some(ref key) if *key == "assumptions" => c.assumptions = current_value_lines.clone(),
-                Some(ref key) if *key == "blind_spots" => c.blind_spots = current_value_lines.clone(),
-                Some(ref key) if *key == "stale_after" => c.stale_after = current_value_lines.join("\n"),
+                Some(key) if key == "what_captured" => {
+                    c.what_captured = current_value_lines.join("\n")
+                }
+                Some(key) if key == "what_missed" => {
+                    c.what_missed = current_value_lines.join("\n")
+                }
+                Some(key) if key == "assumptions" => {
+                    c.assumptions = current_value_lines.clone()
+                }
+                Some(key) if key == "blind_spots" => {
+                    c.blind_spots = current_value_lines.clone()
+                }
+                Some(key) if key == "stale_after" => {
+                    c.stale_after = current_value_lines.join("\n")
+                }
                 _ => {}
             }
         }
@@ -445,8 +462,7 @@ fn extract_confidence(content: &str) -> Option<ConfidenceAssessment> {
     confidence
 }
 
-/// Helper functions for table extraction
-
+/// Helper functions for table extraction.
 fn is_separator_line(line: &str) -> bool {
     let parts: Vec<&str> = line.split('|').collect();
     parts.iter().all(|p| {
@@ -464,9 +480,7 @@ fn extract_row_from_line(line: &str) -> Vec<String> {
 }
 
 /// Load overlay annotations from JSON file
-fn load_overlay(
-    path: &Path,
-) -> Result<Vec<crate::state_docs::models::Annotation>, crate::Error> {
+fn load_overlay(path: &Path) -> Result<Vec<crate::state_docs::models::Annotation>, crate::Error> {
     let content = fs::read_to_string(path)?;
     let overlay: Vec<crate::state_docs::models::Annotation> =
         serde_json::from_str(&content).map_err(crate::Error::Json)?;
@@ -530,18 +544,13 @@ fn insert_section(
 }
 
 /// Insert table into SQLite
-fn insert_table(
-    conn: &Connection,
-    doc_path: &Path,
-    table: &Table,
-) -> Result<(), crate::Error> {
+fn insert_table(conn: &Connection, doc_path: &Path, table: &Table) -> Result<(), crate::Error> {
     let file_name = doc_path
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or("unknown");
 
-    let headers_json =
-        serde_json::to_string(&table.headers).map_err(crate::Error::Json)?;
+    let headers_json = serde_json::to_string(&table.headers).map_err(crate::Error::Json)?;
 
     conn.execute(
         "INSERT INTO tables (doc_id, section_id, start_line, end_line, headers)

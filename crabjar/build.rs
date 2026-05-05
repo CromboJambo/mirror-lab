@@ -27,13 +27,13 @@ enum CliCommand {
     /// Manage knowledge store
     Knowledge {
         #[command(subcommand)]
-        command: crate::knowledge_store::commands::KnowledgeCommand,
+        command: KnowledgeCommand,
     },
 
     /// Manage dotfile promotions
     Dotfile {
         #[command(subcommand)]
-        command: crate::dotfile_manager::DotfileCommand,
+        command: DotfileCommand,
     },
 
     /// Show workspace configuration
@@ -58,13 +58,26 @@ enum StateCommand {
 }
 
 #[derive(clap::Subcommand, Clone)]
+enum KnowledgeCommand {
+    /// Index a state-doc
+    Index { doc: String },
+}
+
+#[derive(clap::Subcommand, Clone)]
+enum DotfileCommand {
+    /// Promote a dotfile to AGENTS.md
+    Promote { path: String },
+}
+
+#[derive(clap::Subcommand, Clone)]
 enum WorkspaceCommand {
     /// Show workspace configuration status
     Status,
 }
 
 fn main() -> std::io::Result<()> {
-    let out_dir = std::path::PathBuf::from(std::env::var_os("OUT_DIR").ok_or(std::io::ErrorKind::NotFound)?);
+    let out_dir =
+        std::path::PathBuf::from(std::env::var_os("OUT_DIR").ok_or(std::io::ErrorKind::NotFound)?);
     let cmd = Cli::command();
     let man = Man::new(cmd);
     let mut buffer: Vec<u8> = Default::default();

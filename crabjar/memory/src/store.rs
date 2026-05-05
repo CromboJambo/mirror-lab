@@ -215,7 +215,7 @@ impl Store {
         let metadata_str: String = self.conn.query_row(
             "SELECT meta FROM knowledge WHERE id = ?1",
             params![id],
-            |row| Ok(row.get::<_, String>(2)?),
+            |row| row.get::<_, String>(2),
         )?;
 
         let metadata: serde_json::Value = serde_json::from_str(&metadata_str).unwrap_or_default();

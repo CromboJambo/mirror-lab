@@ -449,7 +449,10 @@ fn knowledge_sync_is_idempotent() {
     assert_eq!(second_body["success"], true);
     assert_eq!(second_body["ids"].as_array().unwrap().len(), 0);
 
-    let query = run_in(&temp, &["knowledge", "query", "--tags=state-doc,alpha-state"]);
+    let query = run_in(
+        &temp,
+        &["knowledge", "query", "--tags=state-doc,alpha-state"],
+    );
     assert!(query.status.success());
     let query_body = json_stdout(&query);
     assert_eq!(query_body["rows"].as_array().unwrap().len(), 1);
@@ -486,7 +489,10 @@ fn resolve_annotation_deactivates_derived_knowledge() {
     assert_eq!(sync_body["success"], true);
     assert_eq!(sync_body["ids"].as_array().unwrap().len(), 1);
 
-    let query_before = run_in(&temp, &["knowledge", "query", "--tags=state-doc,alpha-state"]);
+    let query_before = run_in(
+        &temp,
+        &["knowledge", "query", "--tags=state-doc,alpha-state"],
+    );
     assert!(query_before.status.success());
     let query_before_body = json_stdout(&query_before);
     assert_eq!(query_before_body["rows"].as_array().unwrap().len(), 1);
@@ -508,7 +514,10 @@ fn resolve_annotation_deactivates_derived_knowledge() {
     assert!(resolve_body["resolved"].is_object());
     assert_eq!(resolve_body["resolved"]["status"], "resolved");
 
-    let query_after = run_in(&temp, &["knowledge", "query", "--tags=state-doc,alpha-state"]);
+    let query_after = run_in(
+        &temp,
+        &["knowledge", "query", "--tags=state-doc,alpha-state"],
+    );
     assert!(query_after.status.success());
     let query_after_body = json_stdout(&query_after);
     assert_eq!(query_after_body["rows"].as_array().unwrap().len(), 0);

@@ -115,7 +115,15 @@ impl<'a> Renderer<'a> {
                     display_name: String::new(),
                     description: row.get::<_, String>(0)?,
                     path: String::new(),
-                    last_modified: row.get::<_, String>(1).ok().and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok().map(|dt| dt.with_timezone(&Utc))).unwrap_or_else(|| Utc::now()),
+                    last_modified: row
+                        .get::<_, String>(1)
+                        .ok()
+                        .and_then(|s| {
+                            chrono::DateTime::parse_from_rfc3339(&s)
+                                .ok()
+                                .map(|dt| dt.with_timezone(&Utc))
+                        })
+                        .unwrap_or(Utc::now()),
                     line_count: 0,
                     section_count: 0,
                     table_count: 0,
@@ -195,7 +203,15 @@ impl<'a> Renderer<'a> {
                 status: row.get(5)?,
                 author: row.get(6)?,
                 message: row.get(7)?,
-                created_at: row.get::<_, String>(8).ok().and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok().map(|dt| dt.with_timezone(&Utc))).unwrap_or_else(|| Utc::now()),
+                created_at: row
+                    .get::<_, String>(8)
+                    .ok()
+                    .and_then(|s| {
+                        chrono::DateTime::parse_from_rfc3339(&s)
+                            .ok()
+                            .map(|dt| dt.with_timezone(&Utc))
+                    })
+                    .unwrap_or(Utc::now()),
             })
         })?;
 
@@ -205,10 +221,6 @@ impl<'a> Renderer<'a> {
         }
         Ok(annotations)
     }
-
-
-
-
 
     // ─── Render helpers ───
 
@@ -317,11 +329,7 @@ impl<'a> Renderer<'a> {
         md
     }
 
-    fn render_paragraph_view(
-        &self,
-        sections: &[Section],
-        metadata: &DocMetadata,
-    ) -> String {
+    fn render_paragraph_view(&self, sections: &[Section], metadata: &DocMetadata) -> String {
         let mut md = String::new();
         md.push_str(&format!("{}\n", metadata.description));
         md.push_str("\n---\n\n");
@@ -360,7 +368,7 @@ impl<'a> Renderer<'a> {
             };
 
             md.push_str("---\n\n");
-        };
+        }
 
         // Add doubt block — every abstraction carries its own doubt
         md.push_str("# ## Doubt\n\n");
@@ -434,18 +442,14 @@ impl<'a> Renderer<'a> {
                 md.push_str(&format!("  - Status: {}\n", ann.status));
                 md.push_str(&format!("  - Created: {}\n", ann.created_at));
                 md.push_str(&format!("  - ID: {}\n", ann.id));
-                md.push_str("\n");
+                md.push('\n');
             }
         };
 
         md
     }
 
-    fn render_section_summary(
-        &self,
-        section: &Section,
-        annotations: &[Annotation],
-    ) -> String {
+    fn render_section_summary(&self, section: &Section, annotations: &[Annotation]) -> String {
         let mut md = String::new();
         let heading_level = match section.level {
             1 => "#",
@@ -453,11 +457,11 @@ impl<'a> Renderer<'a> {
             3 => "###",
             _ => "####",
         };
+        md.push_str(&format!("{} {}\n\n", heading_level, section.title));
         md.push_str(&format!(
-            "{} {}\n\n",
-            heading_level, section.title
+            "*Lines {}–{}\n\n",
+            section.start_line, section.end_line
         ));
-        md.push_str(&format!("*Lines {}–{}\n\n", section.start_line, section.end_line));
 
         if !annotations.is_empty() {
             md.push_str("# ## Annotations\n\n ");
@@ -473,8 +477,11 @@ impl<'a> Renderer<'a> {
     }
 
     fn get_paragraph_line_range(&self, section: &Section, paragraph_idx: usize) -> [i64; 2] {
-        let paragraph_count = estimate_paragraph_count(&format!("{}–{}", section.start_line, section.end_line)).max(1);
-        let start = section.start_line + (paragraph_idx * (section.end_line - section.start_line) / paragraph_count);
+        let paragraph_count =
+            estimate_paragraph_count(&format!("{}–{}", section.start_line, section.end_line))
+                .max(1);
+        let start = section.start_line
+            + (paragraph_idx * (section.end_line - section.start_line) / paragraph_count);
         let end = start + (section.end_line - section.start_line) / paragraph_count;
         [start as i64, end as i64]
     }
@@ -496,7 +503,10 @@ impl<'a> Renderer<'a> {
             "{} {} — Paragraph {}\n\n",
             heading_level, section.title, paragraph_idx
         ));
-        md.push_str(&format!("*Lines {}–{}\n\n", section.start_line, section.end_line));
+        md.push_str(&format!(
+            "*Lines {}–{}\n\n",
+            section.start_line, section.end_line
+        ));
 
         if !annotations.is_empty() {
             md.push_str("# ## Annotations\n\n ");
@@ -528,7 +538,10 @@ impl<'a> Renderer<'a> {
             "{} {} — Paragraph {}\n\n",
             heading_level, section.title, paragraph_idx
         ));
-        md.push_str(&format!("*Lines {}–{}\n\n", section.start_line, section.end_line));
+        md.push_str(&format!(
+            "*Lines {}–{}\n\n",
+            section.start_line, section.end_line
+        ));
 
         if !annotations.is_empty() {
             md.push_str("# ## Annotations\n\n ");
@@ -549,8 +562,7 @@ impl<'a> Renderer<'a> {
     }
 }
 
-
-
+#[allow(dead_code)]
 fn truncate_snippet(snippet: &str, max_len: usize) -> String {
     if snippet.len() <= max_len {
         snippet.to_string()
@@ -564,6 +576,7 @@ fn estimate_paragraph_count(snippet: &str) -> usize {
     snippet.split("\n\n").filter(|p| !p.is_empty()).count()
 }
 
+#[allow(dead_code)]
 fn parse_confidence_from_snippet(snippet: &str) -> ConfidenceAssessment {
     let assessment = ConfidenceAssessment::default();
 
