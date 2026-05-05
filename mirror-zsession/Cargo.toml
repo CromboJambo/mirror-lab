@@ -1,0 +1,29 @@
+[package]
+name = "mirror-zsession"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "CLI for listing and connecting to Zellij sessions via WebSocket"
+repository.workspace = true
+documentation.workspace = true
+
+[[bin]]
+name = "mirror-zsession"
+path = "src/main.rs"
+
+[dependencies]
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+sha2.workspace = true
+hex.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+ws_stream_tungstenite.workspace = true
+reqwest.workspace = true
+rusqlite.workspace = true
+async-tungstenite.workspace = true
+futures.workspace = true

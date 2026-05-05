@@ -8,6 +8,7 @@ mirror.db
 *.db
 crabjar/reference_materials/
 docs/
+staging/
 
 # IDE and editor files
 .idea/

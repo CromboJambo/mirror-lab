@@ -16,6 +16,7 @@ members = [
     "crabjar/src/codeburn-pricing",
     "zllg",
     "mirror-kernel/mirror-voice",
+    "mirror-zsession",
 ]
 resolver = "2"
 
@@ -72,6 +73,11 @@ reqwest = { version = "0.12" }
 
 # Security / gitignore matching
 ignore = "0.4"
+
+# WebSocket
+ws_stream_tungstenite = "0.15"
+async-tungstenite = "0.29"
+futures = "0.3"
 
 # Path utilities
 path-absolutize = "3.1"
