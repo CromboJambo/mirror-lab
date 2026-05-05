@@ -50,6 +50,12 @@ impl PiperVoice {
     pub fn load<P: AsRef<Path>>(voice_path: P) -> Result<Self, PiperTtsError> {
         let voice_path = voice_path.as_ref();
 
+        if !voice_path.exists() {
+            return Err(PiperTtsError::InvalidVoicePath(
+                voice_path.display().to_string(),
+            ));
+        }
+
         // Load voice configuration
         let config_path = voice_path.with_extension("onnx.json");
         let config_content = std::fs::read_to_string(&config_path)
@@ -84,14 +90,8 @@ impl PiperVoice {
     /// Convert text to phoneme ID sequence
     fn text_to_phoneme_ids(&self, text: &str) -> Result<Vec<i64>, PiperTtsError> {
         // Step 1: Text → phonemes via espeak
-        let phonemes = espeak_rs::text_to_phonemes(
-            text,
-            &self.espeak_voice,
-            None,
-            true,
-            false,
-        )
-        .map_err(|e| PiperTtsError::PhonemizationError(e.to_string()))?;
+        let phonemes = espeak_rs::text_to_phonemes(text, &self.espeak_voice, None, true, false)
+            .map_err(|e| PiperTtsError::PhonemizationError(e.to_string()))?;
 
         let phoneme_str = phonemes.join("");
 
@@ -119,6 +119,10 @@ impl PiperVoice {
 
     /// Synthesize text to audio
     pub fn synthesize(&mut self, text: &str) -> Result<Vec<f32>, PiperTtsError> {
+        if text.is_empty() {
+            return Err(PiperTtsError::NoAudioData);
+        }
+
         // Convert text to phoneme IDs
         let phoneme_ids = self.text_to_phoneme_ids(text)?;
 
@@ -160,5 +164,87 @@ impl PiperVoice {
     /// Get the sample rate of this voice
     pub fn sample_rate(&self) -> u32 {
         self.sample_rate
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_voice_load_missing_model_returns_invalid_path() {
+        let tmp = TempDir::new().unwrap();
+        let result = PiperVoice::load(tmp.path().join("nonexistent.onnx"));
+        assert!(matches!(result, Err(PiperTtsError::InvalidVoicePath(_))));
+    }
+
+    #[test]
+    fn test_voice_load_missing_config_returns_missing_config() {
+        let tmp = TempDir::new().unwrap();
+        let model_path = tmp.path().join("model.onnx");
+        std::fs::write(&model_path, "dummy").unwrap();
+        let result = PiperVoice::load(&model_path);
+        assert!(matches!(result, Err(PiperTtsError::MissingVoiceConfig(_))));
+    }
+
+    #[test]
+    fn test_voice_config_parse_valid_json() {
+        let config_json = serde_json::json!({
+            "audio": { "sample_rate": 16000 },
+            "espeak": { "voice": "en-us" },
+            "inference": { "noise_scale": 0.667, "length_scale": 1.0, "noise_w": 0.0 },
+            "phoneme_id_map": { "^": [1], "$": [2], "a": [10] },
+            "num_symbols": 100
+        });
+
+        let config: VoiceConfig = serde_json::from_str(&config_json.to_string()).unwrap();
+        assert_eq!(config.audio.sample_rate, 16000);
+        assert_eq!(config.espeak.voice, "en-us");
+        assert_eq!(config.inference.noise_scale, 0.667);
+        assert_eq!(config.phoneme_id_map.get("^"), Some(&vec![1]));
+    }
+
+    #[test]
+    fn test_voice_config_parse_invalid_json() {
+        let invalid_json = "not valid json";
+        let result: Result<VoiceConfig, _> = serde_json::from_str(invalid_json);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_phoneme_map_flatten_bos_eos() {
+        let raw_map: HashMap<String, Vec<i64>> = HashMap::from([
+            ("^".to_string(), vec![1]),
+            ("$".to_string(), vec![2]),
+            ("a".to_string(), vec![10]),
+        ]);
+
+        let mut flattened: HashMap<String, i64> = HashMap::new();
+        for (phoneme, ids) in raw_map {
+            if let Some(&id) = ids.first() {
+                flattened.insert(phoneme, id);
+            }
+        }
+
+        assert_eq!(flattened.get("^"), Some(&1));
+        assert_eq!(flattened.get("$"), Some(&2));
+        assert_eq!(flattened.get("a"), Some(&10));
+    }
+
+    #[test]
+    fn test_phoneme_map_flatten_missing_first() {
+        let raw_map: HashMap<String, Vec<i64>> =
+            HashMap::from([("^".to_string(), vec![]), ("$".to_string(), vec![2])]);
+
+        let mut flattened: HashMap<String, i64> = HashMap::new();
+        for (phoneme, ids) in raw_map {
+            if let Some(&id) = ids.first() {
+                flattened.insert(phoneme, id);
+            }
+        }
+
+        assert!(flattened.get("^").is_none());
+        assert_eq!(flattened.get("$"), Some(&2));
     }
 }
