@@ -39,8 +39,8 @@ pub struct MirrorDaemon {
     /// Pipeline executor
     executor: PipelineExecutor,
 
-    /// Directory containing pipeline definitions
-    pipelines_dir: PathBuf,
+    /// Canonical directory containing pipeline definitions
+    canonical_pipelines_dir: PathBuf,
 
     /// Guard database for execution gating
     guard_db: GuardDb,
@@ -60,16 +60,17 @@ impl MirrorDaemon {
 
         let pipelines_dir = pipelines_dir.as_ref().to_path_buf();
         std::fs::create_dir_all(&pipelines_dir)?;
+        let canonical_pipelines_dir =
+            std::fs::canonicalize(&pipelines_dir).map_err(std::io::Error::other)?;
 
         // Guard database for execution gating
         let guard_db_path = ledger_path.as_ref().join("guard.db");
-        let guard_db = GuardDb::open(guard_db_path)
-            .map_err(std::io::Error::other)?;
+        let guard_db = GuardDb::open(guard_db_path).map_err(std::io::Error::other)?;
 
         Ok(Self {
             ledger,
             executor,
-            pipelines_dir,
+            canonical_pipelines_dir,
             guard_db,
         })
     }
@@ -80,7 +81,7 @@ impl MirrorDaemon {
         pipeline_name: &str,
         event: EventPayload,
     ) -> std::io::Result<String> {
-        let pipeline_path = self.pipelines_dir.join(pipeline_name);
+        let pipeline_path = self.canonical_pipelines_dir.join(pipeline_name);
 
         if !pipeline_path.exists() {
             return Err(std::io::Error::new(
@@ -89,20 +90,33 @@ impl MirrorDaemon {
             ));
         }
 
+        let canonical_pipeline =
+            std::fs::canonicalize(&pipeline_path).map_err(std::io::Error::other)?;
+
+        if !canonical_pipeline.starts_with(&self.canonical_pipelines_dir) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                format!(
+                    "Pipeline path escapes confinement: {} not under {}",
+                    canonical_pipeline.display(),
+                    self.canonical_pipelines_dir.display()
+                ),
+            ));
+        }
+
         let ctx = GateContext {
             action_type: &event.pipeline,
             command: "nu",
             args: vec![pipeline_name.to_string()],
             trust_layer: event.trust_layer,
+            confidence: event.confidence,
             has_raw_data: event.has_raw_data,
             has_uncertainty: event.has_uncertainty,
             can_interrupt: event.can_interrupt,
         };
 
-        let gate = ExecutionGate::new(&self.guard_db, false, &self.pipelines_dir);
-        let gate_result = gate
-            .check(ctx)
-            .map_err(std::io::Error::other)?;
+        let gate = ExecutionGate::new(&self.guard_db, false, &self.canonical_pipelines_dir);
+        let gate_result = gate.check(ctx).map_err(std::io::Error::other)?;
 
         match gate_result {
             GateResult::Interrupted { reason } => Err(std::io::Error::other(reason)),
@@ -153,7 +167,7 @@ impl MirrorDaemon {
     pub fn list_pipelines(&self) -> std::io::Result<Vec<String>> {
         let mut pipelines = Vec::new();
 
-        for entry in std::fs::read_dir(&self.pipelines_dir)? {
+        for entry in std::fs::read_dir(&self.canonical_pipelines_dir)? {
             let entry = entry?;
             let path = entry.path();
 
@@ -202,6 +216,7 @@ mod tests {
 
         let daemon = MirrorDaemon::new(&ledger_dir, &pipelines_dir).unwrap();
 
+        assert!(daemon.canonical_pipelines_dir.is_absolute());
         assert!(daemon.ledger.get_reflection("dummy").is_err());
 
         let (tx, rx) = mpsc::channel::<EventPayload>(1);
@@ -238,6 +253,7 @@ mod tests {
             command: "nu",
             args: vec!["test.nu".to_string()],
             trust_layer: 3,
+            confidence: TrustScore::new(0.9),
             has_raw_data: true,
             has_uncertainty: true,
             can_interrupt: true,
@@ -258,6 +274,7 @@ mod tests {
             command: "nu",
             args: vec!["test.nu".to_string()],
             trust_layer: 2,
+            confidence: TrustScore::new(0.65),
             has_raw_data: false,
             has_uncertainty: true,
             can_interrupt: true,
@@ -278,6 +295,7 @@ mod tests {
             command: "nu",
             args: vec!["test.nu".to_string()],
             trust_layer: 2,
+            confidence: TrustScore::new(0.65),
             has_raw_data: true,
             has_uncertainty: true,
             can_interrupt: true,
