@@ -15,6 +15,7 @@ members = [
     "crabjar/src/codeburn-classifier",
     "crabjar/src/codeburn-pricing",
     "zllg",
+    "mirror-kernel/mirror-voice",
 ]
 resolver = "2"
 
@@ -82,3 +83,5 @@ codeburn-config = { path = "crabjar/src/codeburn-config" }
 codeburn-provider = { path = "crabjar/src/codeburn-provider" }
 codeburn-classifier = { path = "crabjar/src/codeburn-classifier" }
 codeburn-pricing = { path = "crabjar/src/codeburn-pricing" }
+mirror-voice = { path = "mirror-kernel/mirror-voice" }
+piper-tts = { path = "mirror-kernel/mirror-voice/piper-tts" }

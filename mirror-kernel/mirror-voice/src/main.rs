@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use piper_tts::{AudioOutput, PiperVoice};
 use tray_icon::menu::{Menu, MenuEvent, MenuItem};
-use tray_icon::{TrayIconBuilder, Icon};
+use tray_icon::{Icon, TrayIconBuilder};
 
 const VOICE_MODEL: &str = "./piper-tts/voices/en_US-lessac-medium.onnx";
 
@@ -56,11 +56,11 @@ fn main() -> anyhow::Result<()> {
 
 fn listen_and_paste() {
     let _ = Command::new("pw-cat")
-        .args(&["--record", "/tmp/mirror.wav"])
+        .args(["--record", "/tmp/mirror.wav"])
         .status();
 
     let _ = Command::new("whisper.cpp")
-        .args(&[
+        .args([
             "-m",
             "/home/you/models/base.en",
             "-f",
@@ -80,7 +80,7 @@ fn listen_and_paste() {
     );
 
     let _ = Command::new("wtype")
-        .args(&["-M", "ctrl", "v", "-m", "ctrl"])
+        .args(["-M", "ctrl", "v", "-m", "ctrl"])
         .status();
 }
 
@@ -96,7 +96,9 @@ fn read_selection(voice: &Arc<Mutex<PiperVoice>>) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let mut voice = voice.lock().map_err(|e| anyhow::anyhow!("voice lock poisoned: {}", e))?;
+    let mut voice = voice
+        .lock()
+        .map_err(|e| anyhow::anyhow!("voice lock poisoned: {}", e))?;
     let samples = voice.synthesize(&text).map_err(|e| anyhow::anyhow!(e))?;
 
     let output = AudioOutput::new(voice.sample_rate());
