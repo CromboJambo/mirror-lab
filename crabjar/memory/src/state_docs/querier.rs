@@ -139,20 +139,20 @@ impl StateDocQuerier {
             .ok()?;
 
         stmt.query_row(rusqlite::params![doc_name, section_name], |row| {
-                Ok(Section {
-                    id: row.get(0)?,
-                    doc_name: String::new(),
-                    level: row.get(1)?,
-                    title: row.get(2)?,
-                    start_line: row.get(3)?,
-                    end_line: row.get(4)?,
-                    parent_id: row.get(5)?,
-                    child_count: 0,
-                    content_hash: row.get(6)?,
-                    is_confidence_section: false,
-                })
+            Ok(Section {
+                id: row.get(0)?,
+                doc_name: String::new(),
+                level: row.get(1)?,
+                title: row.get(2)?,
+                start_line: row.get(3)?,
+                end_line: row.get(4)?,
+                parent_id: row.get(5)?,
+                child_count: 0,
+                content_hash: row.get(6)?,
+                is_confidence_section: false,
             })
-            .ok()
+        })
+        .ok()
     }
 
     fn get_child_sections(&self, doc_name: &str, section_name: &str) -> Vec<serde_json::Value> {
@@ -168,15 +168,15 @@ impl StateDocQuerier {
         };
 
         stmt.query_map(rusqlite::params![doc_name, pattern], |row| {
-                Ok(json!({
-                    "level": row.get::<_, i32>(0)?,
-                    "title": row.get::<_, String>(1)?,
-                    "start_line": row.get::<_, i32>(2)?,
-                    "end_line": row.get::<_, i32>(3)?,
-                }))
-            })
-            .map(|rows| rows.filter_map(|r| r.ok()).collect())
-            .unwrap_or_default()
+            Ok(json!({
+                "level": row.get::<_, i32>(0)?,
+                "title": row.get::<_, String>(1)?,
+                "start_line": row.get::<_, i32>(2)?,
+                "end_line": row.get::<_, i32>(3)?,
+            }))
+        })
+        .map(|rows| rows.filter_map(|r| r.ok()).collect())
+        .unwrap_or_default()
     }
 
     fn get_tables_for_section(&self, doc_name: &str, section_name: &str) -> Vec<serde_json::Value> {
@@ -191,14 +191,14 @@ impl StateDocQuerier {
         };
 
         stmt.query_map(rusqlite::params![doc_name, section_name], |row| {
-                Ok(json!({
-                    "index": row.get::<_, i32>(0)?,
-                    "headers": row.get::<_, String>(1)?,
-                    "rows": row.get::<_, String>(2)?,
-                }))
-            })
-            .map(|rows| rows.filter_map(|r| r.ok()).collect())
-            .unwrap_or_default()
+            Ok(json!({
+                "index": row.get::<_, i32>(0)?,
+                "headers": row.get::<_, String>(1)?,
+                "rows": row.get::<_, String>(2)?,
+            }))
+        })
+        .map(|rows| rows.filter_map(|r| r.ok()).collect())
+        .unwrap_or_default()
     }
 
     fn get_code_blocks_for_section(
@@ -217,14 +217,14 @@ impl StateDocQuerier {
         };
 
         stmt.query_map(rusqlite::params![doc_name, section_name], |row| {
-                Ok(json!({
-                    "index": row.get::<_, i32>(0)?,
-                    "language": row.get::<_, String>(1)?,
-                    "content": row.get::<_, String>(2)?,
-                }))
-            })
-            .map(|rows| rows.filter_map(|r| r.ok()).collect())
-            .unwrap_or_default()
+            Ok(json!({
+                "index": row.get::<_, i32>(0)?,
+                "language": row.get::<_, String>(1)?,
+                "content": row.get::<_, String>(2)?,
+            }))
+        })
+        .map(|rows| rows.filter_map(|r| r.ok()).collect())
+        .unwrap_or_default()
     }
 
     fn get_annotations_for_section(
@@ -243,16 +243,16 @@ impl StateDocQuerier {
         };
 
         stmt.query_map(rusqlite::params![doc_name, section_name], |row| {
-                Ok(json!({
-                    "line": row.get::<_, i32>(0)?,
-                    "kind": row.get::<_, String>(1)?,
-                    "message": row.get::<_, String>(2)?,
-                    "author": row.get::<_, String>(3)?,
-                    "status": row.get::<_, String>(4)?,
-                }))
-            })
-            .map(|rows| rows.filter_map(|r| r.ok()).collect())
-            .unwrap_or_default()
+            Ok(json!({
+                "line": row.get::<_, i32>(0)?,
+                "kind": row.get::<_, String>(1)?,
+                "message": row.get::<_, String>(2)?,
+                "author": row.get::<_, String>(3)?,
+                "status": row.get::<_, String>(4)?,
+            }))
+        })
+        .map(|rows| rows.filter_map(|r| r.ok()).collect())
+        .unwrap_or_default()
     }
 
     fn get_annotations_for_doc(&self, doc_name: &str) -> Vec<serde_json::Value> {
@@ -265,16 +265,16 @@ impl StateDocQuerier {
         };
 
         stmt.query_map(rusqlite::params![doc_name], |row| {
-                Ok(json!({
-                    "line": row.get::<_, i32>(0)?,
-                    "kind": row.get::<_, String>(1)?,
-                    "message": row.get::<_, String>(2)?,
-                    "author": row.get::<_, String>(3)?,
-                    "status": row.get::<_, String>(4)?,
-                }))
-            })
-            .map(|rows| rows.filter_map(|r| r.ok()).collect())
-            .unwrap_or_default()
+            Ok(json!({
+                "line": row.get::<_, i32>(0)?,
+                "kind": row.get::<_, String>(1)?,
+                "message": row.get::<_, String>(2)?,
+                "author": row.get::<_, String>(3)?,
+                "status": row.get::<_, String>(4)?,
+            }))
+        })
+        .map(|rows| rows.filter_map(|r| r.ok()).collect())
+        .unwrap_or_default()
     }
 
     fn search_sections(&self, doc_name: &str, keyword: &str) -> Vec<serde_json::Value> {
@@ -290,17 +290,17 @@ impl StateDocQuerier {
         };
 
         stmt.query_map(rusqlite::params![doc_name, pattern], |row| {
-                Ok(json!({
-                    "section_id": row.get::<_, i32>(0)?,
-                    "level": row.get::<_, i32>(1)?,
-                    "title": row.get::<_, String>(2)?,
-                    "start_line": row.get::<_, i32>(3)?,
-                    "end_line": row.get::<_, i32>(4)?,
-                    "content_hash": row.get::<_, String>(5)?,
-                }))
-            })
-            .map(|rows| rows.filter_map(|r| r.ok()).collect())
-            .unwrap_or_default()
+            Ok(json!({
+                "section_id": row.get::<_, i32>(0)?,
+                "level": row.get::<_, i32>(1)?,
+                "title": row.get::<_, String>(2)?,
+                "start_line": row.get::<_, i32>(3)?,
+                "end_line": row.get::<_, i32>(4)?,
+                "content_hash": row.get::<_, String>(5)?,
+            }))
+        })
+        .map(|rows| rows.filter_map(|r| r.ok()).collect())
+        .unwrap_or_default()
     }
 
     fn search_docs_by_tags(&self, tags: &[&str]) -> Vec<serde_json::Value> {
@@ -328,7 +328,10 @@ impl StateDocQuerier {
             };
 
             for row in rows {
-                if !results.iter().any(|r: &serde_json::Value| r["name"].as_str() == row["name"].as_str()) {
+                if !results
+                    .iter()
+                    .any(|r: &serde_json::Value| r["name"].as_str() == row["name"].as_str())
+                {
                     results.push(row);
                 }
             }
@@ -348,15 +351,15 @@ impl StateDocQuerier {
             .ok()?;
 
         stmt.query_row(rusqlite::params![doc_name], |row| {
-                Ok(json!({
-                    "what_captured": row.get::<_, String>(0)?,
-                    "what_missed": row.get::<_, String>(1)?,
-                    "assumptions": row.get::<_, String>(2)?,
-                    "blind_spots": row.get::<_, String>(3)?,
-                    "stale_after": row.get::<_, String>(4)?,
-                }))
-            })
-            .ok()
+            Ok(json!({
+                "what_captured": row.get::<_, String>(0)?,
+                "what_missed": row.get::<_, String>(1)?,
+                "assumptions": row.get::<_, String>(2)?,
+                "blind_spots": row.get::<_, String>(3)?,
+                "stale_after": row.get::<_, String>(4)?,
+            }))
+        })
+        .ok()
     }
 
     fn get_metadata(&self, doc_name: &str) -> Option<serde_json::Value> {
@@ -370,15 +373,15 @@ impl StateDocQuerier {
             .ok()?;
 
         stmt.query_row(rusqlite::params![doc_name], |row| {
-                Ok(json!({
-                    "doc_name": row.get::<_, String>(0)?,
-                    "description": row.get::<_, String>(1)?,
-                    "last_modified": row.get::<_, String>(2)?,
-                    "line_count": row.get::<_, i32>(3)?,
-                    "checksum": row.get::<_, String>(4)?,
-                }))
-            })
-            .ok()
+            Ok(json!({
+                "doc_name": row.get::<_, String>(0)?,
+                "description": row.get::<_, String>(1)?,
+                "last_modified": row.get::<_, String>(2)?,
+                "line_count": row.get::<_, i32>(3)?,
+                "checksum": row.get::<_, String>(4)?,
+            }))
+        })
+        .ok()
     }
 
     fn get_all_sections_for_doc(&self, doc_name: &str) -> Vec<serde_json::Value> {
@@ -392,15 +395,15 @@ impl StateDocQuerier {
         };
 
         stmt.query_map(rusqlite::params![doc_name], |row| {
-                Ok(json!({
-                    "section_id": row.get::<_, i32>(0)?,
-                    "level": row.get::<_, i32>(1)?,
-                    "title": row.get::<_, String>(2)?,
-                    "start_line": row.get::<_, i32>(3)?,
-                    "end_line": row.get::<_, i32>(4)?,
-                }))
-            })
-            .map(|rows| rows.filter_map(|r| r.ok()).collect())
-            .unwrap_or_default()
+            Ok(json!({
+                "section_id": row.get::<_, i32>(0)?,
+                "level": row.get::<_, i32>(1)?,
+                "title": row.get::<_, String>(2)?,
+                "start_line": row.get::<_, i32>(3)?,
+                "end_line": row.get::<_, i32>(4)?,
+            }))
+        })
+        .map(|rows| rows.filter_map(|r| r.ok()).collect())
+        .unwrap_or_default()
     }
 }
