@@ -23,8 +23,22 @@ impl AudioOutput {
             return Err(PiperTtsError::NoAudioData);
         }
 
-        let (_stream, stream_handle) = OutputStream::try_default()?;
-        let sink = Sink::try_new(&stream_handle)?;
+        let (_stream, stream_handle) = match OutputStream::try_default() {
+            Ok(s) => s,
+            Err(_) => {
+                return Err(PiperTtsError::AudioOutputError(
+                    "no audio device available".to_string(),
+                ));
+            }
+        };
+        let sink = match Sink::try_new(&stream_handle) {
+            Ok(s) => s,
+            Err(_) => {
+                return Err(PiperTtsError::AudioOutputError(
+                    "sink creation failed".to_string(),
+                ));
+            }
+        };
 
         // Convert PCM samples to audio format
         let source = rodio::buffer::SamplesBuffer::new(1, self.sample_rate, audio_data.to_vec());
@@ -78,12 +92,57 @@ impl AudioOutput {
         let file = File::open(path).map_err(|e| PiperTtsError::AudioOutputError(e.to_string()))?;
         let source = Decoder::new(BufReader::new(file))?;
 
-        let (_stream, stream_handle) = OutputStream::try_default()?;
-        let sink = Sink::try_new(&stream_handle)?;
+        let (_stream, stream_handle) = match OutputStream::try_default() {
+            Ok(s) => s,
+            Err(_) => {
+                return Err(PiperTtsError::AudioOutputError(
+                    "no audio device available".to_string(),
+                ));
+            }
+        };
+        let sink = match Sink::try_new(&stream_handle) {
+            Ok(s) => s,
+            Err(_) => {
+                return Err(PiperTtsError::AudioOutputError(
+                    "sink creation failed".to_string(),
+                ));
+            }
+        };
 
         sink.append(source);
         sink.sleep_until_end();
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_save_empty_audio_returns_no_audio_data() {
+        let tmp = TempDir::new().unwrap();
+        let output = AudioOutput::new(16000);
+        let result = output.save(tmp.path().join("empty.wav"), &[]);
+        assert!(matches!(result, Err(PiperTtsError::NoAudioData)));
+    }
+
+    #[test]
+    fn test_save_valid_audio_creates_wav() {
+        let tmp = TempDir::new().unwrap();
+        let output = AudioOutput::new(16000);
+        let samples: Vec<f32> = vec![0.0, 0.1, -0.1, 0.0];
+        let result = output.save(tmp.path().join("test.wav"), &samples);
+        assert!(result.is_ok());
+        assert!(tmp.path().join("test.wav").exists());
+    }
+
+    #[test]
+    fn test_play_empty_audio_returns_no_audio_data() {
+        let output = AudioOutput::new(16000);
+        let result = output.play(&[]);
+        assert!(matches!(result, Err(PiperTtsError::NoAudioData)));
     }
 }
