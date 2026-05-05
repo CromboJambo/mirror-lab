@@ -127,11 +127,16 @@ impl EventSource for FileWatcher {
         }
 
         for path in paths_to_send {
+            let mut hasher = DefaultHasher::new();
+            path.hash(&mut hasher);
+            let h = hasher.finish();
+            let source_event_id = format!("evt_{}", h);
+
             let payload = EventPayload {
                 pipeline: "obs_recorder".to_string(),
                 payload: path.to_string_lossy().into_owned(),
                 attempts: 0,
-                source_event_id: None,
+                source_event_id: Some(source_event_id),
                 trust_layer: 0,
                 confidence: TrustScore::new(0.1),
                 has_raw_data: true,
@@ -144,9 +149,6 @@ impl EventSource for FileWatcher {
                     if let Some(state) = self.pending.lock().await.get_mut(&path) {
                         state.processed = true;
                     }
-                    let mut hasher = DefaultHasher::new();
-                    payload.payload.hash(&mut hasher);
-                    let h = hasher.finish();
                     {
                         let mut recent = self.recent_hashes.lock().await;
                         recent.push_back(h);
