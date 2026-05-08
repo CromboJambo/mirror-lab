@@ -33,18 +33,18 @@ enum Commands {
     },
 }
 
-fn get_zellij_dirs() -> Result<(PathBuf, PathBuf)> {
-    let dirs = ProjectDirs::from("org", "Zellij Contributors", "Zellij")
-        .ok_or_else(|| anyhow::anyhow!("Zellij ProjectDirs not available"))?;
+fn get_zellij_dirs() -> anyhow::Result<(PathBuf, PathBuf)> {
+    let dirs: ProjectDirs = match ProjectDirs::from("org", "Zellij Contributors", "Zellij") {
+        Some(d) => d,
+        None => anyhow::bail!("Zellij ProjectDirs not available"),
+    };
 
-    let sock_dir = dirs.runtime_dir().to_owned();
+    let sock_dir = dirs.runtime_dir()
+        .ok_or_else(|| anyhow::anyhow!("Zellij runtime_dir not available"))?
+        .to_owned();
 
-    let cache_dir = dirs
-        .cache_dir()
-        .ok_or_else(|| std::env::temp_dir())?
-        .to_owned()
-        .join("contract_version_1")
-        .join("session_info");
+    let cache_base = dirs.cache_dir().to_owned();
+    let cache_dir = cache_base.join("contract_version_1").join("session_info");
 
     Ok((sock_dir, cache_dir))
 }
