@@ -1,13 +1,13 @@
 use anyhow::Result;
 use chrono::Duration;
 use clap::{Parser, Subcommand};
-use serde_json::{json, Value};
+use directories::ProjectDirs;
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::os::unix::fs::FileTypeExt;
 use std::path::PathBuf;
 use uuid::Uuid;
-use directories::ProjectDirs;
 
 #[derive(Parser)]
 #[command(name = "mirror-zsession")]
@@ -39,7 +39,8 @@ fn get_zellij_dirs() -> anyhow::Result<(PathBuf, PathBuf)> {
         None => anyhow::bail!("Zellij ProjectDirs not available"),
     };
 
-    let sock_dir = dirs.runtime_dir()
+    let sock_dir = dirs
+        .runtime_dir()
         .ok_or_else(|| anyhow::anyhow!("Zellij runtime_dir not available"))?
         .to_owned();
 
@@ -76,11 +77,7 @@ fn list_active_sessions(sock_dir: &PathBuf) -> Result<Vec<Value>> {
 
         let is_socket = entry.file_type()?.is_socket();
 
-        let status = if is_socket {
-            "active"
-        } else {
-            "exit"
-        };
+        let status = if is_socket { "active" } else { "exit" };
 
         sessions.push(json!({"name": name, "age": age.to_string(), "status": status}));
     }
@@ -165,29 +162,6 @@ fn create_session_token(auth_token: &str, db_path: &PathBuf) -> Result<String> {
     Ok(session_token)
 }
 
-async fn connect_to_terminal_ws(session_name: &str, web_client_id: &str, auth_token: &str, db_path: &PathBuf) -> Result<()> {
-    let session_token = create_session_token(auth_token, db_path)?;
-
-    let url = std::env::var("ZELLIJ_WS_URL")
-        .unwrap_or_else(|_| "ws://127.0.0.1:8082".to_string())
-        + &format!("/ws/{}", session_name);
-    let response = reqwest::Client::new()
-        .get(&url)
-        .query(&[("web_client_id", web_client_id)])
-        .header("Cookie", format!("session_token={}", session_token))
-        .send()
-        .await?;
-
-    if response.status().is_success() {
-        let _socket = response.upgrade().await?;
-        println!("connected to ws://127.0.0.1:8082/ws/{}", session_name);
-    } else {
-        anyhow::bail!("connection failed: {}", response.status());
-    }
-
-    Ok(())
-}
-
 fn create_new_token(db_path: &PathBuf) -> Result<Uuid> {
     let conn = rusqlite::Connection::open(db_path)?;
 
@@ -231,7 +205,10 @@ fn main() -> Result<()> {
 
             Ok(())
         }
-        Commands::Connect { session: _, auth_token } => {
+        Commands::Connect {
+            session: _,
+            auth_token,
+        } => {
             let auth_token = auth_token
                 .or_else(|| std::env::var("ZELLIJ_AUTH_TOKEN").ok())
                 .ok_or_else(|| anyhow::anyhow!("auth token required"))?;
@@ -242,9 +219,9 @@ fn main() -> Result<()> {
             println!("{}", serde_json::to_string(&output)?);
 
             if valid {
-            let session_token = create_session_token(&auth_token, &token_db_path)?;
-            let output = json!({"session_token": session_token});
-            println!("{}", serde_json::to_string(&output)?);
+                let session_token = create_session_token(&auth_token, &token_db_path)?;
+                let output = json!({"session_token": session_token});
+                println!("{}", serde_json::to_string(&output)?);
             }
 
             Ok(())
