@@ -7,13 +7,7 @@ members = [
     "mirror-logger",
     "mirror-query",
     "mirror-log",
-    "crabjar/orchestrator",
     "mirror-guard",
-    "crabjar/src/codeburn",
-    "crabjar/src/codeburn-config",
-    "crabjar/src/codeburn-provider",
-    "crabjar/src/codeburn-classifier",
-    "crabjar/src/codeburn-pricing",
     "zllg",
     "mirror-kernel/mirror-voice",
     "mirror-zsession",
@@ -88,9 +82,5 @@ path-absolutize = "3.1"
 # Workspace member dependencies
 mirror-kernel = { path = "mirror-kernel" }
 mirror-guard = { path = "mirror-guard" }
-codeburn-config = { path = "crabjar/src/codeburn-config" }
-codeburn-provider = { path = "crabjar/src/codeburn-provider" }
-codeburn-classifier = { path = "crabjar/src/codeburn-classifier" }
-codeburn-pricing = { path = "crabjar/src/codeburn-pricing" }
 mirror-voice = { path = "mirror-kernel/mirror-voice" }
 piper-tts = { path = "mirror-kernel/mirror-voice/piper-tts" }
