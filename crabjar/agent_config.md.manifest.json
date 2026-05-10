@@ -1,7 +1,0 @@
-{
-  "role": "agent configuration",
-  "entry_points": ["agent_config.md"],
-  "dependencies": ["crabjar-config"],
-  "data_source": "filesystem",
-  "capabilities": ["agent configuration"]
-}

@@ -1,7 +1,0 @@
-{
-  "role": "agent-context library: knowledge store (SQLite-backed)",
-  "entry_points": ["SQLite database"],
-  "dependencies": ["crabjar-config"],
-  "data_source": "SQLite-backed knowledge store",
-  "capabilities": ["knowledge store queries", "SQLite persistence"]
-}

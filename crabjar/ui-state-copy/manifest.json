@@ -1,7 +1,0 @@
-{
-  "role": "UI state copy and snapshot",
-  "entry_points": ["ui-state-copy/"],
-  "dependencies": ["crabjar-config", "agent-context"],
-  "data_source": "filesystem",
-  "capabilities": ["UI state snapshot"]
-}

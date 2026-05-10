@@ -1,7 +1,0 @@
-{
-  "role": "workspace configuration and management",
-  "entry_points": ["crabjar-config/"],
-  "dependencies": ["crabjar-config"],
-  "data_source": "filesystem (`.crabjar_config.toml`)",
-  "capabilities": ["config struct", "TOML parsing"]
-}

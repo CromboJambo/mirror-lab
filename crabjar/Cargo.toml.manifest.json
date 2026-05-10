@@ -1,7 +1,0 @@
-{
-  "role": "workspace dependency manifest",
-  "entry_points": ["Cargo.toml"],
-  "dependencies": ["crabjar-config"],
-  "data_source": "filesystem",
-  "capabilities": ["dependency management"]
-}

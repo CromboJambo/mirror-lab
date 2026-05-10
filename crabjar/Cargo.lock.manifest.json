@@ -1,7 +1,0 @@
-{
-  "role": "dependency lock file",
-  "entry_points": ["Cargo.lock"],
-  "dependencies": ["Cargo.toml"],
-  "data_source": "filesystem",
-  "capabilities": ["dependency locking"]
-}

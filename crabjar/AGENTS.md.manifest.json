@@ -1,7 +1,0 @@
-{
-  "role": "repository guidelines and agent instructions",
-  "entry_points": ["AGENTS.md"],
-  "dependencies": ["crabjar-config"],
-  "data_source": "filesystem",
-  "capabilities": ["repository guidelines"]
-}

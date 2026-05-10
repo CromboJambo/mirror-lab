@@ -1,7 +1,0 @@
-{
-  "role": "git repository management",
-  "entry_points": ["git/"],
-  "dependencies": ["crabjar-config"],
-  "data_source": "filesystem",
-  "capabilities": ["git repository management"]
-}

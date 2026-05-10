@@ -1,7 +1,0 @@
-{
-  "role": "task runner shortcuts",
-  "entry_points": ["Justfile"],
-  "dependencies": ["crabjar", "orchestrator"],
-  "data_source": "filesystem",
-  "capabilities": ["task runner shortcuts"]
-}

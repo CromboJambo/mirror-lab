@@ -1,7 +1,0 @@
-{
-  "role": "human reference material",
-  "entry_points": ["human_reference.md"],
-  "dependencies": ["crabjar-config"],
-  "data_source": "filesystem",
-  "capabilities": ["human reference"]
-}
