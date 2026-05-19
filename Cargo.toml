@@ -8,7 +8,7 @@ members = [
     "mirror-query",
     "mirror-log",
     "mirror-guard",
-    "zllg",
+    "mirror-zsession",
     "mirror-kernel/mirror-voice",
     "mirror-zsession",
 ]

@@ -24,7 +24,7 @@ mirror-lab/
 ├── staging/                # Ephemeral staging directory for single JSON artifacts
 ├── pipelines/               # Future pipeline definitions (currently empty)
 ├── state-docs/             # State-docs Markdown files for project documentation
-├── zllg/                   # Zellij IDE orchestration layer
+├── mirror-zsession/               # Zellij IDE orchestration layer
 └── crabjar/                # Agent scratchpad — experimental crates and knowledge store
 ```
 
