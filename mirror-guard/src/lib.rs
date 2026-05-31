@@ -1,6 +1,6 @@
-//! mirror-guard: Annealing knowledge distillation, trust-layer retrieval, and execution gating.
+//! mirror-guard: Shared execution gate for trust-layer gating, command risk assessment, and provenance enforcement.
 //!
-//! Provides the action-gating layer for the mirror-lab workspace, maintaining
+//! Provides the action-gating layer shared between mirror-lab and crabjar, maintaining
 //! strict separation between detection (mirror-log) and authorization (mirror-guard).
 //!
 //! ## Core Components
@@ -14,7 +14,7 @@
 //! ## Architecture
 //!
 //! ```text
-//! mirror-log (detection)  ──events──>  mirror-guard (authorization)  ──gated──>  mirror-daemon (action)
+//! mirror-log (detection)  ──events──>  mirror-guard (authorization)  ──gated──>  mirror-daemon / crabjar (action)
 //!     append-only                  separate DB (guard.db)                  execution gate
 //! ```
 //!

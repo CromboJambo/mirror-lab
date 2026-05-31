@@ -71,25 +71,30 @@ impl<'a> MemoryGraph<'a> {
     ) -> Result<(), GuardDbError> {
         let conn = self.db.conn();
 
-        let mut updates = Vec::new();
+        let mut filters = Vec::new();
+        let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
 
         if let Some(c) = content {
-            updates.push(format!("content = '{}'", c.into().replace('\'', "''")));
+            filters.push("content = ?".to_string());
+            params.push(Box::new(c.into()));
         }
         if let Some(m) = metadata {
-            updates.push(format!("metadata = '{}'", m.into().replace('\'', "''")));
+            filters.push("metadata = ?".to_string());
+            params.push(Box::new(m.into()));
         }
 
-        if updates.is_empty() {
+        if filters.is_empty() {
             return Ok(());
         }
 
-        updates.push("last_touched = unixepoch()".to_string());
-        let set_clause = updates.join(", ");
+        filters.push("last_touched = unixepoch()".to_string());
+        let set_clause = filters.join(", ");
+
+        params.push(Box::new(id.to_string()));
 
         conn.execute(
-            &format!("UPDATE memory_nodes SET {} WHERE id = ?1", set_clause),
-            params![id],
+            &format!("UPDATE memory_nodes SET {} WHERE id = ?", set_clause),
+            rusqlite::params_from_iter(params.iter().map(|p| p.as_ref())),
         )?;
 
         Ok(())

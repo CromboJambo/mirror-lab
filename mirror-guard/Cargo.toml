@@ -4,12 +4,9 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Annealing knowledge distillation, trust-layer retrieval, and execution gating"
+description = "Shared execution gate: trust-layer gating, command risk assessment, PID trust, and provenance enforcement"
 
 [dependencies]
-# Gitignore pattern matching
-ignore.workspace = true
-
 # Serialization
 serde.workspace = true
 serde_json.workspace = true

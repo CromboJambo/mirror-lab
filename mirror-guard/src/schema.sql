@@ -38,7 +38,7 @@ CREATE INDEX IF NOT EXISTS idx_edges_to ON memory_edges(to_id);
 CREATE INDEX IF NOT EXISTS idx_edges_relation ON memory_edges(relation);
 
 -- ============================================================================
--- Trust Layers: configurable trust bands
+-- Trust Layers: configurable trust bands (5 layers)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS trust_layers (
     id INTEGER PRIMARY KEY,
@@ -51,12 +51,13 @@ CREATE TABLE IF NOT EXISTS trust_layers (
     created_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
 
--- Seed default trust layers
+-- Seed default trust layers (5-layer model)
 INSERT OR IGNORE INTO trust_layers (id, name, min_confidence, max_confidence, auto_execute, requires_review, description) VALUES
     (0, 'raw',          0.0, 0.2, 0, 1, 'Unverified raw observations'),
     (1, 'observed',     0.2, 0.5, 0, 1, 'Observed but not yet confirmed'),
-    (2, 'working',      0.5, 0.8, 0, 1, 'Working knowledge - requires review'),
-    (3, 'annealed',     0.8, 1.0, 1, 0, 'Highly annealed, trusted knowledge');
+    (2, 'quarantined',  0.5, 0.8, 0, 1, 'External-sourced knowledge - requires manual promotion'),
+    (3, 'working',      0.8, 0.9, 0, 1, 'Working knowledge - requires review'),
+    (4, 'annealed',     0.9, 1.0, 1, 0, 'Highly annealed, trusted knowledge');
 
 -- ============================================================================
 -- Review Records: human review history
@@ -193,3 +194,35 @@ CREATE TABLE IF NOT EXISTS interrupted_log (
 );
 
 CREATE INDEX IF NOT EXISTS idx_interrupted_log_time ON interrupted_log(logged_at DESC);
+
+-- ============================================================================
+-- PID Trust: per-process trust layers
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS pid_trust (
+    pid INTEGER PRIMARY KEY,
+    trust_layer INTEGER NOT NULL DEFAULT 0,
+    use_count INTEGER NOT NULL DEFAULT 0,
+    last_use INTEGER NOT NULL DEFAULT (unixepoch()),
+    auto_grant BOOLEAN NOT NULL DEFAULT 0,
+    decay_interval INTEGER NOT NULL DEFAULT 3600,
+    decay_rate REAL NOT NULL DEFAULT 0.02
+);
+
+CREATE INDEX IF NOT EXISTS idx_pid_trust_layer ON pid_trust(trust_layer);
+CREATE INDEX IF NOT EXISTS idx_pid_trust_last_use ON pid_trust(last_use DESC);
+
+-- ============================================================================
+-- Revoked Log: guided exits from revocation
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS revoked_log (
+    id INTEGER PRIMARY KEY,
+    pid INTEGER NOT NULL,
+    command TEXT NOT NULL,
+    revoked_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    reason TEXT NOT NULL,
+    old_layer INTEGER NOT NULL,
+    new_layer INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_revoked_log_time ON revoked_log(revoked_at DESC);
+CREATE INDEX IF NOT EXISTS idx_revoked_log_pid ON revoked_log(pid);

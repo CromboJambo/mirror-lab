@@ -171,4 +171,103 @@ mod tests {
         let results = engine.search("rust", 2, 10).unwrap();
         assert!(results.iter().all(|n| n.trust_layer >= 2));
     }
+
+    #[test]
+    fn test_retrieve_all() {
+        let dir = tempdir().unwrap();
+        let db = GuardDb::open(dir.path().join("guard.db")).unwrap();
+        let engine = RetrievalEngine::new(&db);
+        let mg = MemoryGraph::new(&db);
+
+        mg.add_node(NodeKind::Fact, "node1", TrustScore::new(0.1))
+            .unwrap();
+        mg.add_node(NodeKind::Rule, "node2", TrustScore::new(0.9))
+            .unwrap();
+
+        let all = engine.retrieve_all(100).unwrap();
+        assert_eq!(all.len(), 2);
+    }
+
+    #[test]
+    fn test_retrieve_by_kind() {
+        let dir = tempdir().unwrap();
+        let db = GuardDb::open(dir.path().join("guard.db")).unwrap();
+        let engine = RetrievalEngine::new(&db);
+        let mg = MemoryGraph::new(&db);
+
+        mg.add_node(NodeKind::Fact, "fact node", TrustScore::new(0.5))
+            .unwrap();
+        mg.add_node(NodeKind::Rule, "rule node", TrustScore::new(0.5))
+            .unwrap();
+
+        let facts = engine
+            .retrieve_by_kind(NodeKind::Fact, &RetrievalBand::default())
+            .unwrap();
+        assert_eq!(facts.len(), 1);
+        assert_eq!(facts[0].kind, NodeKind::Fact);
+    }
+
+    #[test]
+    fn test_retrieve_with_evidence() {
+        let dir = tempdir().unwrap();
+        let db = GuardDb::open(dir.path().join("guard.db")).unwrap();
+        let engine = RetrievalEngine::new(&db);
+        let mg = MemoryGraph::new(&db);
+
+        let node_id = mg
+            .add_node(NodeKind::Fact, "evidence node", TrustScore::new(0.5))
+            .unwrap();
+        let evidence = engine
+            .retrieve_with_evidence(std::slice::from_ref(&node_id))
+            .unwrap();
+        assert_eq!(evidence.len(), 1);
+        assert_eq!(evidence[0].0.id, node_id);
+    }
+
+    #[test]
+    fn test_search_no_results() {
+        let dir = tempdir().unwrap();
+        let db = GuardDb::open(dir.path().join("guard.db")).unwrap();
+        let engine = RetrievalEngine::new(&db);
+
+        let results = engine.search("nonexistent", 0, 10).unwrap();
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_retrieve_stale() {
+        let dir = tempdir().unwrap();
+        let db = GuardDb::open(dir.path().join("guard.db")).unwrap();
+        let engine = RetrievalEngine::new(&db);
+        let mg = MemoryGraph::new(&db);
+
+        mg.add_node(NodeKind::Fact, "stale node", TrustScore::new(0.5))
+            .unwrap();
+
+        // Use negative max_age so all nodes satisfy (now - last_touched) > max_age
+        let stale = engine.retrieve_stale(-1, 100).unwrap();
+        assert!(!stale.is_empty());
+    }
+
+    #[test]
+    fn test_trust_distribution() {
+        let dir = tempdir().unwrap();
+        let db = GuardDb::open(dir.path().join("guard.db")).unwrap();
+        let engine = RetrievalEngine::new(&db);
+
+        let dist = engine.trust_distribution().unwrap();
+        assert!(!dist.is_empty());
+    }
+
+    #[test]
+    fn test_retrieve_by_kind_empty() {
+        let dir = tempdir().unwrap();
+        let db = GuardDb::open(dir.path().join("guard.db")).unwrap();
+        let engine = RetrievalEngine::new(&db);
+
+        let results = engine
+            .retrieve_by_kind(NodeKind::Fact, &RetrievalBand::default())
+            .unwrap();
+        assert!(results.is_empty());
+    }
 }

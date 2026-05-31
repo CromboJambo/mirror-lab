@@ -10,7 +10,6 @@ members = [
     "mirror-guard",
     "mirror-zsession",
     "mirror-kernel/mirror-voice",
-    "mirror-zsession",
 ]
 resolver = "2"
 
@@ -82,5 +81,6 @@ path-absolutize = "3.1"
 # Workspace member dependencies
 mirror-kernel = { path = "mirror-kernel" }
 mirror-guard = { path = "mirror-guard" }
+mirror-log = { path = "mirror-log" }
 mirror-voice = { path = "mirror-kernel/mirror-voice" }
 piper-tts = { path = "mirror-kernel/mirror-voice/piper-tts" }

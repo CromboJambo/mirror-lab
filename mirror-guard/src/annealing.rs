@@ -417,7 +417,7 @@ mod tests {
                 Some(node_id),
                 "echo",
                 "hello",
-                3,
+                4,
                 TrustScore::new(0.9),
             )
             .unwrap();
@@ -492,7 +492,7 @@ mod tests {
                 Some(node_id.clone()),
                 "test_action",
                 "payload",
-                3,
+                4,
                 TrustScore::new(0.9),
             )
             .unwrap();

@@ -174,9 +174,9 @@ impl<'a> TrustManager<'a> {
         let support_sum: f64 = conn
             .query_row(
                 "SELECT COALESCE(SUM(e.weight * mn.confidence), 0)
-             FROM memory_edges e
-             JOIN memory_nodes mn ON e.from_id = mn.id
-             WHERE e.to_id = ?1 AND e.relation = 'supports'",
+                 FROM memory_edges e
+                 JOIN memory_nodes mn ON e.from_id = mn.id
+                 WHERE e.to_id = ?1 AND e.relation = 'supports'",
                 params![node_id],
                 |r| r.get(0),
             )
@@ -185,9 +185,9 @@ impl<'a> TrustManager<'a> {
         let contradict_sum: f64 = conn
             .query_row(
                 "SELECT COALESCE(SUM(e.weight * mn.confidence), 0)
-             FROM memory_edges e
-             JOIN memory_nodes mn ON e.from_id = mn.id
-             WHERE e.to_id = ?1 AND e.relation = 'contradicts'",
+                 FROM memory_edges e
+                 JOIN memory_nodes mn ON e.from_id = mn.id
+                 WHERE e.to_id = ?1 AND e.relation = 'contradicts'",
                 params![node_id],
                 |r| r.get(0),
             )
@@ -229,6 +229,11 @@ impl<'a> TrustManager<'a> {
         Ok(new_score)
     }
 
+    /// Get the guard DB connection.
+    pub fn conn(&self) -> std::sync::MutexGuard<'_, rusqlite::Connection> {
+        self.db.conn()
+    }
+
     /// Decay a node's confidence based on time and usage.
     pub fn decay(&self, node_id: &str, rate: f64) -> Result<TrustScore, GuardDbError> {
         let config = self.db.load_anneal_config()?;
@@ -265,13 +270,13 @@ mod tests {
         let tm = TrustManager::new(&db);
 
         let layers = tm.list_layers().unwrap();
-        assert!(layers.len() >= 4);
+        assert!(layers.len() >= 5);
         assert_eq!(layers[0].name(), "raw");
         assert!(!layers[0].auto_execute);
         assert!(!layers[2].auto_execute);
         assert!(layers[2].requires_review);
-        assert!(layers[3].auto_execute);
-        assert!(!layers[3].requires_review);
+        assert!(layers[4].auto_execute);
+        assert!(!layers[4].requires_review);
     }
 
     #[test]
@@ -283,10 +288,13 @@ mod tests {
         let raw = tm.layer_for_score(TrustScore::new(0.1)).unwrap().unwrap();
         assert_eq!(raw.name(), "raw");
 
-        let working = tm.layer_for_score(TrustScore::new(0.6)).unwrap().unwrap();
+        let quarantined = tm.layer_for_score(TrustScore::new(0.6)).unwrap().unwrap();
+        assert_eq!(quarantined.name(), "quarantined");
+
+        let working = tm.layer_for_score(TrustScore::new(0.85)).unwrap().unwrap();
         assert_eq!(working.name(), "working");
 
-        let annealed = tm.layer_for_score(TrustScore::new(0.9)).unwrap().unwrap();
+        let annealed = tm.layer_for_score(TrustScore::new(0.95)).unwrap().unwrap();
         assert_eq!(annealed.name(), "annealed");
     }
 
