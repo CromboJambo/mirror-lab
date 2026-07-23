@@ -163,7 +163,7 @@ impl GateConcierge {
                     logged_at: chrono::Utc::now().timestamp(),
                 };
                 if let Some(db) = &self.db
-                    && let Err(e) = db.persist_revoked_entry(&entry)
+                    && let Err(e) = db.persist_interrupted_log_entry(&entry)
                 {
                     error!(
                         gate_result_id = %gate_result_id,

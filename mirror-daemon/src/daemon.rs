@@ -118,6 +118,7 @@ impl MirrorDaemon {
             has_raw_data: event.has_raw_data,
             has_uncertainty: event.has_uncertainty,
             can_interrupt: event.can_interrupt,
+            pid: None,
         };
 
         let gate = ExecutionGate::new(&self.guard_db, false, &self.canonical_pipelines_dir);
