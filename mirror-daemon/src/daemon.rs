@@ -264,7 +264,7 @@ mod tests {
         let mut daemon = MirrorDaemon::new(&ledger_dir, &pipelines_dir).unwrap();
 
         assert!(daemon.canonical_pipelines_dir.is_absolute());
-        assert!(daemon.ledger.get_reflection("dummy").is_err());
+        assert!((daemon.ledger.get_reflection("dummy").is_err()));
 
         let (tx, rx) = mpsc::channel::<EventPayload>(1);
         drop(tx);
@@ -305,6 +305,7 @@ mod tests {
             has_raw_data: true,
             has_uncertainty: true,
             can_interrupt: true,
+            pid: None,
         };
 
         let result = gate.check(ctx).unwrap();
@@ -327,6 +328,7 @@ mod tests {
             has_raw_data: false,
             has_uncertainty: true,
             can_interrupt: true,
+            pid: None,
         };
 
         let result = gate.check(ctx).unwrap();
@@ -349,6 +351,7 @@ mod tests {
             has_raw_data: true,
             has_uncertainty: true,
             can_interrupt: true,
+            pid: None,
         };
 
         let result = gate.check(ctx).unwrap();
