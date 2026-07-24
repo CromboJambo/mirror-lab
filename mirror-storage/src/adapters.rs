@@ -5,7 +5,9 @@ use std::sync::Mutex;
 
 use rusqlite::{Connection, params, Row};
 
-use crate::{Storage, Transaction as StorageTransaction, IntoParams, Value, StorageError, TableSchema, ColumnSchema};
+use crate::{
+    ColumnSchema, IntoParams, Storage, StorageError, TableSchema, Transaction as StorageTransaction, Value,
+};
 
 /// Rusqlite-based implementation of the `Storage` trait.
 /// 
@@ -19,12 +21,11 @@ pub struct RusqliteAdapter {
 impl RusqliteAdapter {
     /// Create a new adapter from an existing rusqlite Connection.
     pub fn from_connection(conn: Connection) -> Self {
-        Self { 
+        Self {
             conn: Mutex::new(conn),
         }
     }
 
-    /// Open or create a database at the given path.
     /// Open or create a database at the given path.
     /// Applies performance optimizations (WAL mode, etc.).
     pub fn open(path: impl AsRef<Path>) -> Result<Self, StorageError> {
@@ -71,12 +72,14 @@ impl Storage for RusqliteAdapter {
         
         // Convert parameters to rusqlite format
         let param_slice = params.as_slice();
-        let mut stmt = conn.prepare(sql)
+        
+        let mut stmt = conn
+            .prepare(sql)
             .map_err(|e| StorageError::Query(e.to_string()))?;
 
         Box::new(
-            stmt.query_map(param_slice, move |row| {
-                row_to_values(row).map_err(|e| StorageError::Query(e.to_string()))
+            stmt.query_map(param_slice, |row| {
+                row_to_values(row).map_err(|e| StorageError::Query(e))
             })
             .map_err(|e| StorageError::Query(e.to_string()))
             .unwrap_or_else(|| vec![].into_iter())
@@ -84,11 +87,16 @@ impl Storage for RusqliteAdapter {
         )
     }
 
-    fn execute(&self, sql: &str, params: impl IntoParams) -> Result<i64, StorageError> {
+    fn execute(
+        &self,
+        sql: &str,
+        params: impl IntoParams,
+    ) -> Result<i64, StorageError> {
         let conn = self.conn.lock().unwrap();
         
         let param_slice = params.as_slice();
-        let rows_affected = conn.execute(sql, param_slice)
+        let rows_affected = conn
+            .execute(sql, param_slice)
             .map_err(|e| StorageError::Query(e.to_string()))?;
 
         Ok(rows_affected as i64)
@@ -112,8 +120,6 @@ impl Storage for RusqliteAdapter {
     }
 
     fn table_schema(&self, name: &str) -> Result<TableSchema, StorageError> {
-        use std::collections::HashMap;
-        
         let conn = self.conn.lock().unwrap();
         
         // Get column info using PRAGMA table_info
@@ -170,11 +176,12 @@ impl StorageTransaction for RusqliteTransaction {
         // Note: params not yet implemented for transactions
         // TODO: Add parameter binding support
         
-        let mut stmt = conn.prepare(sql)
+        let mut stmt = conn
+            .prepare(sql)
             .map_err(|e| StorageError::Query(e.to_string()))?;
 
         let rows = stmt.query_map([], |row| {
-            row_to_values(row).map_err(|e| e.to_string().into())
+            row_to_values(row).map_err(|e| e.into())
         })?;
 
         Ok(rows.filter_map(Result::ok).collect())
@@ -195,26 +202,19 @@ impl StorageTransaction for RusqliteTransaction {
 }
 
 /// Convert a rusqlite Row to Vec<Value>.
-fn row_to_values(row: &Row<'_>) -> Result<Vec<Value>, String> {
-    let count = row.as_ref().len() as u8;
+fn row_to_values(row: &Row<'_>) -> String {
+    let count = row.as_ref().len();
     
     (0..count)
-        .map(|i| {
-            match row.get_ref(i).unwrap_or(rusqlite::types::ValueRef::Null) {
-                rusqlite::types::ValueRef::Null => Ok(Value::Null),
-                rusqlite::types::ValueRef::Integer(n) => Ok(Value::integer(*n)),
-                rusqlite::types::ValueRef::Real(f) => Ok(Value::Float(*f)),
-                rusqlite::types::ValueRef::Blob(b) => {
-                    let b = b.to_vec();
-                    Ok(Value::Blob(b))
-                }
-                rusqlite::types::ValueRef::Text(t) => {
-                    let s = String::from_utf8_lossy(t).to_string();
-                    Ok(Value::text(s))
-                }
-            }
+        .map(|i| match row.get_ref(i).unwrap_or(rusqlite::types::ValueRef::Null) {
+            rusqlite::types::ValueRef::Null => "NULL".to_string(),
+            rusqlite::types::ValueRef::Integer(n) => n.to_string(),
+            rusqlite::types::ValueRef::Real(f) => f.to_string(),
+            rusqlite::types::ValueRef::Blob(b) => format!("BLOB({} bytes)", b.len()),
+            rusqlite::types::ValueRef::Text(t) => String::from_utf8_lossy(t).to_string(),
         })
-        .collect()
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 #[cfg(test)]

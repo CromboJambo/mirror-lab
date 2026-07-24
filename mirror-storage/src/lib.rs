@@ -8,23 +8,36 @@ use thiserror::Error;
 /// Core storage errors
 #[derive(Error, Debug)]
 pub enum StorageError {
-    #[error("connection failed: {0}")]
+    #[error("Connection error: {0}")]
     Connection(String),
 
-    #[error("query execution failed: {0}")]
+    #[error("Query error: {0}")]
     Query(String),
 
-    #[error("transaction error: {0}")]
+    #[error("Transaction error: {0}")]
     Transaction(String),
 
-    #[error("schema mismatch: expected {expected}, got {actual}")]
-    SchemaMismatch { expected: String, actual: String },
+    #[error("Schema error: {0}")]
+    Schema(String),
 
-    #[error("operation not supported by backend")]
-    UnsupportedOperation,
+    #[error("Conversion error: {0}")]
+    Conversion(String),
+}
 
-    #[error("timeout waiting for resource")]
-    Timeout,
+// Implement From for rusqlite errors
+impl From<rusqlite::Error> for StorageError {
+    fn from(err: rusqlite::Error) -> Self {
+        StorageError::Query(err.to_string())
+    }
+}
+
+// Implement From for Mutex lock errors  
+use std::sync::{Mutex, PoisonError};
+
+impl From<PoisonError<MutexGuard<'_, Connection>>> for StorageError {
+    fn from(_err: PoisonError<MutexGuard<'_, Connection>>) -> Self {
+        StorageError::Connection("Lock poisoned".to_string())
+    }
 }
 
 /// Core trait representing a database-agnostic storage layer.
@@ -87,7 +100,7 @@ impl Value {
     }
 
     pub fn as_i64(&self) -> Option<i64> {
-        if let Self::Integer(v) = self { Some(*v) } else { None }
+        if let Self::Integer(v) = self { *v } else { None }
     }
 
     pub fn is_null(&self) -> bool {
