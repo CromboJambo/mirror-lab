@@ -4,6 +4,8 @@ pub mod adapters;
 
 use std::fmt::Debug;
 use thiserror::Error;
+use rusqlite::Connection;
+use std::sync::{Mutex, MutexGuard, PoisonError};
 
 /// Core storage errors
 #[derive(Error, Debug)]
