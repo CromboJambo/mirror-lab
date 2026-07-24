@@ -10,6 +10,7 @@ members = [
     "mirror-guard",
     "mirror-zsession",
     "mirror-kernel/mirror-voice",
+    "mirror-storage",
 ]
 resolver = "2"
 
