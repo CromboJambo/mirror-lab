@@ -136,7 +136,7 @@ impl GitDecisionLayer {
 
     pub fn get_decision_history(&self) -> Result<Vec<DecisionBlob>, GitError> {
         let mut decisions = self.get_all_decisions()?;
-        decisions.sort_by(|left, right| left.timestamp.cmp(&right.timestamp));
+        decisions.sort_by_key(|left| left.timestamp);
         Ok(decisions)
     }
 
