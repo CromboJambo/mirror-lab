@@ -49,6 +49,9 @@ pkg/
 # Stakpak session files
 .stakpak/session*
 
+# Local LLM training/finetune artifacts (unsloth)
+unsloth_compiled_cache/
+
 # Reference materials (cloned repos, not authored here)
 crabjar/reference_materials/
 crabjar/.agents/
