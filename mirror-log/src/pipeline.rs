@@ -251,8 +251,8 @@ fn flush_batch(
     let receipts = log::append_batch_with_receipts_in_tx(&tx, source, &content_refs, meta)
         .map_err(io::Error::other)?;
 
-    for (content, receipt) in batch.iter().zip(receipts.into_iter()) {
-        let event_id = receipt.id;
+    for (content, receipt) in batch.iter().zip(receipts.iter()) {
+        let event_id = receipt.id.clone();
         result.event_ids.push(event_id.clone());
 
         if chunk_size > 0 && content.len() > chunk_threshold {

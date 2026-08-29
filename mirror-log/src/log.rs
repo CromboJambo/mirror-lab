@@ -98,13 +98,13 @@ pub fn append_batch_with_receipts_in_tx(
     meta: Option<&str>,
 ) -> Result<Vec<AppendReceipt>> {
     let mut receipts = Vec::with_capacity(contents.len());
-    let mut timestamp = next_timestamp(conn)?;
+    let base_timestamp = next_timestamp(conn)?;
 
-    for content in contents {
+    for (i, content) in contents.iter().enumerate() {
+        let ts = base_timestamp + i as i64;
         receipts.push(append_single_event_internal(
-            conn, source, content, meta, timestamp,
+            conn, source, content, meta, ts,
         )?);
-        timestamp += 1;
     }
 
     Ok(receipts)
