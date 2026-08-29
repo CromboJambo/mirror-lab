@@ -197,11 +197,11 @@ impl MirrorDaemon {
             match self.process_event(&event.pipeline, event.clone()).await {
                 Ok(id) => println!(
                     "[✅] Successfully processed event for pipeline '{}'. Reflection ID: {}",
-                    &event.pipeline, id
+                    event.pipeline, id
                 ),
                 Err(e) => eprintln!(
                     "[❌] Failed to process event for pipeline '{}': {}",
-                    &event.pipeline, e
+                    event.pipeline, e
                 ),
             }
         }
@@ -293,14 +293,33 @@ mod tests {
     fn test_gate_proceeds_for_trusted_action() {
         let tmp = TempDir::new().unwrap();
         let guard_db = GuardDb::open(tmp.path().join("guard.db")).unwrap();
+        // Seed provenance: the gate requires source_event_id to exist in
+        // action_requests before reaching the trust-layer check.
+        {
+            let conn = guard_db.conn();
+            conn.execute(
+                "INSERT INTO action_requests (id, source_event_id, action_type, payload, trust_layer, confidence, status)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                rusqlite::params![
+                    "test-action-daemon-1",
+                    "evt-daemon-1",
+                    "echo",
+                    "hello",
+                    4,
+                    0.95,
+                    "trust-approved",
+                ],
+            )
+            .unwrap();
+        }
         let gate = ExecutionGate::new(&guard_db, false, tmp.path());
 
         let ctx = GateContext {
             action_type: "echo",
             command: "nu",
             args: vec!["test.nu".to_string()],
-            trust_layer: 3,
-            confidence: TrustScore::new(0.9),
+            trust_layer: 4,
+            confidence: TrustScore::new(0.95),
             source_event_id: Some("evt-daemon-1"),
             has_raw_data: true,
             has_uncertainty: true,
@@ -339,6 +358,25 @@ mod tests {
     fn test_gate_pending_for_working_layer() {
         let tmp = TempDir::new().unwrap();
         let guard_db = GuardDb::open(tmp.path().join("guard.db")).unwrap();
+        // Seed provenance: the gate requires source_event_id to exist in
+        // action_requests before reaching the trust-layer check.
+        {
+            let conn = guard_db.conn();
+            conn.execute(
+                "INSERT INTO action_requests (id, source_event_id, action_type, payload, trust_layer, confidence, status)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                rusqlite::params![
+                    "test-action-daemon-3",
+                    "evt-daemon-3",
+                    "echo",
+                    "hello",
+                    2,
+                    0.65,
+                    "trust-approved",
+                ],
+            )
+            .unwrap();
+        }
         let gate = ExecutionGate::new(&guard_db, false, tmp.path());
 
         let ctx = GateContext {
