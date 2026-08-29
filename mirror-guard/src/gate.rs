@@ -181,18 +181,22 @@ impl<'a> ExecutionGate<'a> {
     pub fn check_knowledge_write(&self, source: &str) -> Result<GateResult, GuardDbError> {
         match source {
             "external" => {
-                debug!(source = source, "Knowledge write from external source → quarantine");
+                debug!(
+                    source = source,
+                    "Knowledge write from external source → quarantine"
+                );
                 Ok(GateResult::Pending)
             }
             "agent" | "system" => {
                 debug!(source = source, "Knowledge write from trusted source");
                 Ok(GateResult::Proceed)
             }
-            "user" => {
-                Ok(GateResult::Proceed)
-            }
+            "user" => Ok(GateResult::Proceed),
             _ => {
-                warn!(source = source, "Unknown knowledge write source → quarantine");
+                warn!(
+                    source = source,
+                    "Unknown knowledge write source → quarantine"
+                );
                 Ok(GateResult::Pending)
             }
         }
