@@ -69,6 +69,46 @@ mod database_tests {
     }
 
     #[test]
+    fn test_unversioned_database_is_migrated_to_current_schema_version() {
+        let db_path = temp_db();
+
+        // Build a database with the full schema, then reset user_version to 0
+        // to simulate a legacy database created before versioning existed.
+        {
+            let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
+            mirror_log::log::append(&conn, "source1", "Legacy event 1", None)
+                .expect("Failed to append");
+            mirror_log::log::append(&conn, "source2", "Legacy event 2", None)
+                .expect("Failed to append");
+            conn.pragma_update(None, "user_version", 0)
+                .expect("Failed to reset user_version");
+            drop(conn);
+        }
+
+        // Reopen: init_db must migrate the unversioned database to
+        // SCHEMA_VERSION without touching existing data.
+        let conn = mirror_log::db::init_db(&db_path).expect("Failed to re-initialize DB");
+        let version =
+            mirror_log::db::current_schema_version(&conn).expect("Failed to read schema version");
+        assert_eq!(version, mirror_log::db::SCHEMA_VERSION);
+
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        assert_eq!(total, 2);
+        assert_eq!(_unique, 2);
+
+        // A second init on an already-current database is a no-op.
+        drop(conn);
+        let conn = mirror_log::db::init_db(&db_path).expect("Failed to re-initialize DB");
+        let version =
+            mirror_log::db::current_schema_version(&conn).expect("Failed to read schema version");
+        assert_eq!(version, mirror_log::db::SCHEMA_VERSION);
+        let (total, _unique, _, _) = mirror_log::log::stats(&conn).expect("Failed to get stats");
+        assert_eq!(total, 2);
+
+        fs::remove_file(&db_path).ok();
+    }
+
+    #[test]
     fn test_database_concurrent_access() {
         let db_path = temp_db();
         let conn = mirror_log::db::init_db(&db_path).expect("Failed to initialize DB");
