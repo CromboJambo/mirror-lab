@@ -1,7 +1,7 @@
 use chrono::{TimeZone, Utc};
 use rusqlite::{Connection, Result};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct Event {
     pub id: String,
     pub timestamp: i64,

@@ -4,7 +4,7 @@ use chrono::Utc;
 use clap::Parser;
 use mirror_log::cli::{Cli, Commands};
 use mirror_log::stage::StagedEvent;
-use mirror_log::{chunk, db, infer, log, pipeline, view};
+use mirror_log::{chunk, db, infer, log, pipeline, state, view};
 use std::path::Path;
 #[cfg(feature = "embedding")]
 use std::sync::Arc;
@@ -544,6 +544,148 @@ fn main() {
                 }
                 Err(e) => {
                     eprintln!("Failed to read staging directory: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
+
+        Commands::SessionNew { source, summary } => {
+            match state::create_session(&conn, &source, summary.as_deref()) {
+                Ok(session) => {
+                    println!("Session created: {}", session.id);
+                    if let Some(s) = &session.summary {
+                        println!("Summary: {}", s);
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Failed to create session: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
+
+        Commands::SessionEnd { id } => match state::end_session(&conn, &id) {
+            Ok(session) => {
+                let ended = session
+                    .ended_at
+                    .and_then(|ts| Utc.timestamp_opt(ts, 0).single())
+                    .map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string())
+                    .unwrap_or_else(|| "unknown".to_string());
+                println!("Session {} ended at {}", session.id, ended);
+            }
+            Err(e) => {
+                eprintln!("Failed to end session: {}", e);
+                std::process::exit(1);
+            }
+        },
+
+        Commands::SessionList { limit } => match state::list_sessions(&conn, limit) {
+            Ok(sessions) => {
+                if sessions.is_empty() {
+                    println!("No sessions found");
+                } else {
+                    println!("Sessions (newest first):\n");
+                    for session in sessions {
+                        let started = Utc
+                            .timestamp_opt(session.started_at, 0)
+                            .single()
+                            .map(|dt| dt.format("%Y-%m-%d %H:%M:%S UTC").to_string())
+                            .unwrap_or_default();
+                        let status = match session.ended_at {
+                            Some(ts) => Utc
+                                .timestamp_opt(ts, 0)
+                                .single()
+                                .map(|dt| format!("ended {}", dt.format("%Y-%m-%d %H:%M:%S UTC")))
+                                .unwrap_or_else(|| "ended".to_string()),
+                            None => "open".to_string(),
+                        };
+                        println!("[{}] {} — {}", session.id, session.source, status);
+                        println!("  Started: {}", started);
+                        if let Some(summary) = &session.summary {
+                            println!("  Summary: {}", summary);
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to list sessions: {}", e);
+                std::process::exit(1);
+            }
+        },
+
+        Commands::Attach { session, event } => {
+            match state::attach_event_to_session(&conn, &session, &event) {
+                Ok(()) => println!("Attached event {} to session {}", event, session),
+                Err(e) => {
+                    eprintln!("Failed to attach event: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
+
+        Commands::Provenance {
+            kind,
+            subject,
+            reason,
+            source,
+            event,
+        } => {
+            match state::record_provenance(
+                &conn,
+                &kind,
+                &subject,
+                &reason,
+                &source,
+                event.as_deref(),
+            ) {
+                Ok(entry) => {
+                    println!("Provenance recorded: {}", entry.id);
+                    println!("  Subject: {} / {}", entry.subject_kind, entry.subject_id);
+                    println!("  Reason: {}", entry.reason);
+                    println!("  Source: {}", entry.source);
+                }
+                Err(e) => {
+                    eprintln!("Failed to record provenance: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
+
+        Commands::ProvenanceShow { kind, subject } => {
+            match state::provenance_for(&conn, &kind, &subject) {
+                Ok(entries) => {
+                    if entries.is_empty() {
+                        println!("No provenance entries for {} / {}", kind, subject);
+                    } else {
+                        println!("Provenance lineage (oldest first):\n");
+                        for entry in entries {
+                            println!("[{}] {}", entry.id, entry.set_at);
+                            println!("  Reason: {}", entry.reason);
+                            println!("  Source: {}", entry.source);
+                            if let Some(event_id) = &entry.event_id {
+                                println!("  Event: {}", event_id);
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Failed to read provenance: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
+
+        Commands::Context { session, limit } => {
+            match state::build_context(&conn, session.as_deref(), limit) {
+                Ok(ctx) => match serde_json::to_string_pretty(&ctx) {
+                    Ok(json) => println!("{}", json),
+                    Err(e) => {
+                        eprintln!("Failed to serialize context: {}", e);
+                        std::process::exit(1);
+                    }
+                },
+                Err(e) => {
+                    eprintln!("Failed to build context: {}", e);
                     std::process::exit(1);
                 }
             }

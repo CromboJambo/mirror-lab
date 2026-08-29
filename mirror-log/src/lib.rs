@@ -14,6 +14,7 @@ pub mod log;
 pub mod pipeline;
 pub mod sources;
 pub mod stage;
+pub mod state;
 pub mod view;
 
 // Re-export commonly used types and functions
@@ -74,6 +75,13 @@ pub use distillation::{
 pub use orchestrator::PromotionOrchestrator;
 
 pub mod cli;
+
+// Re-export state layer types and functions
+pub use state::{
+    Doubt, MemoryContext, ProvenanceEntry, Session, StateError, attach_event_to_session,
+    build_context, create_session, end_session, events_in_session, get_session, provenance_for,
+    record_provenance,
+};
 
 // Re-export bridge types for kernel integration
 #[cfg(feature = "iteration")]

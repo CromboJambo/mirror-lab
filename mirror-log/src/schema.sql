@@ -209,6 +209,40 @@ CREATE TABLE IF NOT EXISTS shadow_state (
 );
 
 -- ---------------------------------------------------------------------------
+-- State layer: session/task scoping and immutable provenance (state.rs)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS sessions (
+    id TEXT PRIMARY KEY,
+    source TEXT NOT NULL,
+    summary TEXT,
+    started_at INTEGER NOT NULL,
+    ended_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_started ON sessions(started_at DESC);
+
+CREATE TABLE IF NOT EXISTS event_sessions (
+    session_id TEXT NOT NULL,
+    event_id TEXT NOT NULL,
+    PRIMARY KEY (session_id, event_id),
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
+    FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_event_sessions_event ON event_sessions(event_id);
+
+CREATE TABLE IF NOT EXISTS provenance (
+    id TEXT PRIMARY KEY,
+    subject_kind TEXT NOT NULL,  -- "event", "baseline", "reflection", ...
+    subject_id TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    source TEXT NOT NULL,
+    event_id TEXT,
+    set_at INTEGER NOT NULL,
+    FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_provenance_subject ON provenance(subject_kind, subject_id);
+CREATE INDEX IF NOT EXISTS idx_provenance_event ON provenance(event_id);
+
+-- ---------------------------------------------------------------------------
 -- Active events: the view every read path queries. Excludes shadowed events.
 -- ---------------------------------------------------------------------------
 CREATE VIEW IF NOT EXISTS active_events AS

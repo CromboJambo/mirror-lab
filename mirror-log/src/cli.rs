@@ -137,6 +137,80 @@ pub enum Commands {
         #[arg(long, default_value = "human.md")]
         output: String,
     },
+
+    /// Create a new session (task scope)
+    SessionNew {
+        /// Source identifier (e.g., "agent", "user")
+        #[arg(long, default_value = "agent")]
+        source: String,
+
+        /// Optional summary of what this session is about
+        #[arg(short, long)]
+        summary: Option<String>,
+    },
+
+    /// Close a session (lifecycle marker only; content is untouched)
+    SessionEnd {
+        /// Session ID
+        id: String,
+    },
+
+    /// List sessions, newest first
+    SessionList {
+        #[arg(short, long, default_value_t = 20)]
+        limit: i64,
+    },
+
+    /// Attach an event to a session (idempotent)
+    Attach {
+        /// Session ID
+        session: String,
+
+        /// Event ID
+        event: String,
+    },
+
+    /// Record an immutable provenance entry
+    Provenance {
+        /// Subject kind ("event", "baseline", "reflection", ...)
+        #[arg(short, long)]
+        kind: String,
+
+        /// Subject identifier (event id, baseline key, ...)
+        subject: String,
+
+        /// Why this entry exists
+        reason: String,
+
+        /// Where it came from (agent, user, model name, ...)
+        #[arg(short, long, default_value = "cli")]
+        source: String,
+
+        /// Optional raw event this was derived from
+        #[arg(long)]
+        event: Option<String>,
+    },
+
+    /// Show the provenance lineage for a subject (oldest first)
+    ProvenanceShow {
+        /// Subject kind
+        #[arg(short, long)]
+        kind: String,
+
+        /// Subject identifier
+        subject: String,
+    },
+
+    /// Build a memory-context bundle for an agent (JSON)
+    Context {
+        /// Scope to a session (optional)
+        #[arg(short, long)]
+        session: Option<String>,
+
+        /// Number of recent events to include
+        #[arg(short, long, default_value_t = 20)]
+        limit: i64,
+    },
 }
 
 pub fn cli() -> clap::Command {
