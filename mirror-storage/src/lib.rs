@@ -2,10 +2,10 @@
 
 pub mod adapters;
 
-use std::fmt::Debug;
-use thiserror::Error;
 use rusqlite::Connection;
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::fmt::Debug;
+use std::sync::{MutexGuard, PoisonError};
+use thiserror::Error;
 
 /// Core storage errors
 #[derive(Error, Debug)]
@@ -33,9 +33,7 @@ impl From<rusqlite::Error> for StorageError {
     }
 }
 
-// Implement From for Mutex lock errors  
-use std::sync::{Mutex, PoisonError};
-
+// Implement From for Mutex lock errors
 impl From<PoisonError<MutexGuard<'_, Connection>>> for StorageError {
     fn from(_err: PoisonError<MutexGuard<'_, Connection>>) -> Self {
         StorageError::Connection("Lock poisoned".to_string())
@@ -44,28 +42,20 @@ impl From<PoisonError<MutexGuard<'_, Connection>>> for StorageError {
 
 /// Core trait representing a database-agnostic storage layer.
 pub trait Storage: Send + Sync {
-    fn query(
-        &self,
-        sql: &str,
-        params: impl IntoParams,
-    ) -> Box<dyn Iterator<Item = Result<Vec<Value>, StorageError>> + '_>;
+    fn query(&self, sql: &str, params: impl IntoParams) -> Result<Vec<Vec<Value>>, StorageError>;
 
-    fn execute(
-        &self,
-        sql: &str,
-        params: impl IntoParams,
-    ) -> Result<i64, StorageError>;
+    fn execute(&self, sql: &str, params: impl IntoParams) -> Result<i64, StorageError>;
 
     fn begin_transaction(&self) -> Result<Box<dyn Transaction>, StorageError>;
 
     fn backend_type(&self) -> &'static str;
 
     fn table_exists(&self, name: &str) -> Result<bool, StorageError> {
-        let result = self.execute(
-            &format!("SELECT 1 FROM {} LIMIT 1", name),
-            [],
-        );
-        Ok(result.is_ok())
+        let count = self.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?1",
+            [Value::text(name)],
+        )?;
+        Ok(count > 0)
     }
 
     fn table_schema(&self, name: &str) -> Result<TableSchema, StorageError>;
@@ -83,8 +73,9 @@ impl<const N: usize> IntoParams for [Value; N] {
 }
 
 /// A single row value in a query result
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum Value {
+    #[default]
     Null,
     Text(String),
     Integer(i64),
@@ -102,7 +93,11 @@ impl Value {
     }
 
     pub fn as_i64(&self) -> Option<i64> {
-        if let Self::Integer(v) = self { *v } else { None }
+        if let Self::Integer(v) = self {
+            Some(*v)
+        } else {
+            None
+        }
     }
 
     pub fn is_null(&self) -> bool {
@@ -115,12 +110,6 @@ impl Value {
 
     pub fn integer(n: i64) -> Self {
         Self::Integer(n)
-    }
-}
-
-impl Default for Value {
-    fn default() -> Self {
-        Self::Null
     }
 }
 
@@ -142,14 +131,13 @@ pub struct ColumnSchema {
     pub default_value: Option<String>,
 }
 
-/// Transaction handle for atomic operations
-pub trait Transaction: Send + Sync {
+/// Transaction handle for atomic operations.
+///
+/// Not `Send + Sync`: the handle is tied to a single connection and is meant
+/// to be used from one thread for the duration of the transaction.
+pub trait Transaction {
     fn execute(&self, sql: &str) -> Result<i64, StorageError>;
-    fn query(
-        &self,
-        sql: &str,
-        params: &[Value],
-    ) -> Result<Vec<Vec<Value>>, StorageError>;
+    fn query(&self, sql: &str, params: &[Value]) -> Result<Vec<Vec<Value>>, StorageError>;
     fn commit(&self) -> Result<(), StorageError>;
     fn rollback(&self) -> Result<(), StorageError>;
 }
