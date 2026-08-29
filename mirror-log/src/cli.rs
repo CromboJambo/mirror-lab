@@ -52,6 +52,24 @@ pub enum Commands {
         meta: Option<String>,
     },
 
+    /// Append an event directly to the log (no staging/approval)
+    Append {
+        /// The content to log
+        content: String,
+
+        #[arg(short, long, default_value = "cli")]
+        source: String,
+
+        #[arg(short, long)]
+        meta: Option<String>,
+    },
+
+    /// Approve a staged event: append it to the log, then remove the staging file
+    Approve {
+        /// Staged event ID
+        id: String,
+    },
+
     /// Add events from stdin (one per line)
     Stdin {
         #[arg(short, long, default_value = "stdin")]

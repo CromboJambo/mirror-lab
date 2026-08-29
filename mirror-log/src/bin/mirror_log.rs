@@ -55,6 +55,53 @@ fn main() {
             println!("Staged file: {} ({})", path.display(), event.id);
         }
 
+        Commands::Append {
+            content,
+            source,
+            meta,
+        } => match log::append_with_receipt(&conn, &source, &content, meta.as_deref()) {
+            Ok(receipt) => {
+                println!("Appended: {}", receipt.id);
+            }
+            Err(e) => {
+                eprintln!("Failed to append event: {}", e);
+                std::process::exit(1);
+            }
+        },
+
+        Commands::Approve { id } => {
+            let staging_dir = Path::new("staging");
+            let event = match StagedEvent::load_from_file(&id, staging_dir) {
+                Ok(event) => event,
+                Err(e) => {
+                    eprintln!("Failed to load staged event {}: {}", id, e);
+                    std::process::exit(1);
+                }
+            };
+
+            match log::append_with_receipt(
+                &conn,
+                &event.source,
+                &event.content,
+                event.meta.as_deref(),
+            ) {
+                Ok(receipt) => {
+                    if let Err(e) = event.remove_file(staging_dir) {
+                        eprintln!(
+                            "Event appended ({}) but failed to remove staging file: {}",
+                            receipt.id, e
+                        );
+                        std::process::exit(1);
+                    }
+                    println!("Approved: {} (staged {} -> log)", receipt.id, event.id);
+                }
+                Err(e) => {
+                    eprintln!("Failed to append staged event {}: {}", event.id, e);
+                    std::process::exit(1);
+                }
+            }
+        }
+
         Commands::Stdin { source, meta } => {
             let staging_dir = Path::new("staging");
             match pipeline::ingest_stdin_with_policy(
