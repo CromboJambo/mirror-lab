@@ -145,7 +145,7 @@ impl GuardDb {
                 serde_json::to_string(&entry.args)
                     .map_err(|e| GuardDbError::SchemaError(e.to_string()))?,
                 entry.trust_layer,
-                entry.confidence.to_string(),
+                entry.confidence,
                 entry.source_event_id,
                 entry.queued_at,
                 entry.reason,
@@ -196,11 +196,7 @@ impl GuardDb {
                     command: row.get(3)?,
                     args,
                     trust_layer: row.get(5)?,
-                    confidence: row
-                        .get::<_, String>(6)?
-                        .parse::<f64>()
-                        .map_err(|_e| GuardDbError::SchemaError(_e.to_string()))
-                        .map_err(|_e| rusqlite::Error::QueryReturnedNoRows)?,
+                    confidence: row.get(6)?,
                     source_event_id: row.get(7)?,
                     queued_at: row.get(8)?,
                     reason: row.get(9)?,
