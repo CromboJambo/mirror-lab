@@ -203,12 +203,20 @@ This ensures we can iterate quickly locally without affecting the fleet until re
 - Phase 1: All quick wins done (LICENSE, READMEs, gitignore cleanup, duplicate pesti checkout)
 - Phase 2: CI added to mirror-lab; pesti already had comprehensive CI
 - Phase 3: Mirror-lab README and CHANGELOG complete
+- Local changes committed across all active repos
+- Remote push completed for: mirror-lab, crabjar, pesti, home-lab
 
 ### In Progress
-- Committing local changes across all active repos
-- Preparing for remote push phase
+- Security vulnerability remediation (GitHub reported issues in crabjar and home-lab)
+- Phase 3 continuation (home-lab README, user_coarses structure)
+
+### Notes
+- Agendarator and user_coarses are local-only repos (no remote configured)
+- GitHub Dependabot found vulnerabilities:
+  - crabjar: 5 (3 moderate, 2 low) — https://github.com/CromboJambo/crabjar/security/dependabot
+  - home-lab: 8 (5 high, 3 moderate) — https://github.com/CromboJambo/home-lab/security/dependabot
 
 ### Next Steps
-1. Push committed changes to remote GitHub upstream
+1. Address security vulnerabilities in crabjar and home-lab
 2. Continue Phase 3 (home-lab README, user_coarses structure)
 3. Begin Phase 4 (code quality & testing improvements)
