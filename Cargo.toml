@@ -11,6 +11,7 @@ members = [
     "mirror-zsession",
     "mirror-kernel/mirror-voice",
     "mirror-storage",
+    "mirror-log-mcp",
 ]
 resolver = "2"
 

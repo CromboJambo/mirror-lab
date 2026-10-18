@@ -1,0 +1,19 @@
+[package]
+name = "mirror-log-mcp"
+version = "0.1.0"
+edition = "2024"
+authors = ["CrabJar Contributors"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/crabjar/mirror-lab"
+
+[dependencies]
+rmcp = { version = "3.5", features = ["server"] }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+rusqlite = { workspace = true }
+dirs = "5.0"
+
+# Mirror-log crate for attention and decay operations
+mirror-log = { path = "../mirror-log" }
