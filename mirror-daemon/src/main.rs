@@ -64,12 +64,39 @@ async fn main() -> Result<(), anyhow::Error> {
                 .map_err(|e| anyhow::anyhow!("Failed to load ingress config: {}", e))?;
 
             // Set up event sources
-            let sources: Vec<Box<dyn ingress::watcher::EventSource>> =
-                vec![Box::new(ingress::watcher::FileWatcher::new(
+            let sources: Vec<Box<dyn ingress::watcher::EventSource>> = {
+                let mut s: Vec<Box<dyn ingress::watcher::EventSource>> = vec![Box::new(ingress::watcher::FileWatcher::new(
                     config.capture.watch_dir.clone(),
                     config.capture.extensions.clone(),
                     tx.clone(),
                 ))];
+
+                // Add syslog watcher for container/service log ingestion
+                // Detect init system: if journalctl exists, use systemd journal mode;
+                // otherwise fall back to file watching (dinit/metalog)
+                let has_journalctl = std::process::Command::new("which")
+                    .arg("journalctl")
+                    .output()
+                    .ok()
+                    .map(|o| o.status.success())
+                    .unwrap_or(false);
+
+                if has_journalctl {
+                    tracing::info!("Using systemd journal mode for syslog watcher");
+                    s.push(Box::new(ingress::syslog_watcher::SyslogWatcher::new_journal(tx.clone())));
+                } else {
+                    tracing::info!("Using file-watch mode for syslog watcher (dinit/metalog)");
+                    let syslog_files = vec![
+                        std::path::PathBuf::from("/var/log/dinit/metalog.log"),
+                    ];
+                    s.push(Box::new(ingress::syslog_watcher::SyslogWatcher::new(
+                        tx.clone(),
+                        syslog_files,
+                    )));
+                }
+
+                s
+            };
 
             // Spawn producer task that polls sources
             let sources = std::sync::Arc::new(sources);

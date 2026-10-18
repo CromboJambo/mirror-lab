@@ -9,5 +9,6 @@ pub mod db;
 pub mod doctor;
 pub mod processor;
 pub mod sanitizer;
+pub mod syslog_watcher;
 pub mod transcription;
 pub mod watcher;

@@ -1,0 +1,74 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Check formatting
+      run: cargo fmt --all --check
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y pkg-config libsqlite3-dev
+    - name: Run clippy (deny warnings)
+      run: cargo clippy --workspace --all-targets -- -D warnings
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y pkg-config libsqlite3-dev
+    - name: Build all targets
+      run: cargo build --workspace --all-targets --verbose
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y pkg-config libsqlite3-dev
+    - name: Run tests
+      run: cargo test --workspace --all-targets --verbose
+
+  reproducible-build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y pkg-config libsqlite3-dev
+    - name: Reproducible build check
+      run: |
+        echo "=== Reproducible Build Check ==="
+        echo "Step 1: Verifying Cargo.lock is up-to-date (pinned deps)..."
+        cargo update --locked || { echo "ERROR: Cargo.lock out of date. Run 'cargo update' and commit the result."; exit 1; }
+        echo "Step 2: Building with deterministic settings..."
+        CARGO_INCREMENTAL=0 \
+         RUSTFLAGS="-C target-cpu=native" \
+         cargo build --workspace --release
+        echo "=== Reproducible build verified ==="
