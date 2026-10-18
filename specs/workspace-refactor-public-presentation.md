@@ -168,7 +168,7 @@ Tasks:
 8. [x] Write comprehensive README for mirror-lab (architecture, usage, examples)
 9. [ ] Update home-lab README with deployment instructions
 10. [ ] Structure user_coarses as public educational content
-11. [x] Add CHANGELOG.md to all active repos (mirror-lab done)
+11. [x] Add CHANGELOG.md to all active repos (mirror-lab done, others pending)
 
 ### Phase 4: Code Quality & Testing (Week 2-3)
 12. [ ] Ensure all Rust repos pass `cargo clippy -- -D warnings`
@@ -190,9 +190,25 @@ Tasks:
 
 ## Local-First Deployment Strategy
 
-1. **Local development**: Make all changes in ~/projects/active/ repos
+1. **Local development**: Make all changes in ~/projects/active/ repos ✅ (in progress)
 2. **Local testing**: Verify everything works locally before pushing
 3. **Remote push**: Push to GitHub upstream when satisfied
 4. **Downstream deployment**: Update homelab machines via home-lab manifests
 
 This ensures we can iterate quickly locally without affecting the fleet until ready.
+
+## Status as of 2026-10-18
+
+### Completed
+- Phase 1: All quick wins done (LICENSE, READMEs, gitignore cleanup, duplicate pesti checkout)
+- Phase 2: CI added to mirror-lab; pesti already had comprehensive CI
+- Phase 3: Mirror-lab README and CHANGELOG complete
+
+### In Progress
+- Committing local changes across all active repos
+- Preparing for remote push phase
+
+### Next Steps
+1. Push committed changes to remote GitHub upstream
+2. Continue Phase 3 (home-lab README, user_coarses structure)
+3. Begin Phase 4 (code quality & testing improvements)
