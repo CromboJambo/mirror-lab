@@ -7,7 +7,7 @@ license.workspace = true
 
 [dependencies]
 thiserror = { workspace = true }
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }
