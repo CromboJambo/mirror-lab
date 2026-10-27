@@ -1,5 +1,17 @@
 # Repository Guidelines
 
+## Project Scope
+
+**In scope:** Transparent log audit infrastructure with append-only event storage, semantic chunking, and local AI querying. Provides "supporting evidence" component of knowledge compression triad — saves context and semantic reasoning without leaking secrets or sensitive data in exchange for flattened understanding.
+
+**Not in scope:**
+- Multi-agent orchestration framework (that's crabjar)
+- Infrastructure-as-code / machine provisioning (that's home-lab)
+- LLM inference engine (that's pesti/llm-workspace)
+- Fleet monitoring/orchestration (that's herdr)
+
+---
+
 ## Project Overview
 
 **mirror-lab** is a Rust workspace for a personal knowledge-management system. It ingests filesystem events, stores them in an append-only SQLite log, supports semantic chunking and local AI querying, and provides a voice/TTS interface.
